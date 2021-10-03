@@ -37,7 +37,14 @@ f.close()
 # Clean up CADI results
 f_cadi = "/eos/user/t/tholmes/www/tova/other/cadi.json"
 
-f = open(f_cadi.replace(".json", "_raw.json"), "r")
+with open(f_cadi.replace(".json", "_raw.json"), "r") as f:
+    cadi_lines = f.readlines()
+with open(f_cadi, "w") as f:
+    for line in cadi_lines:
+        if line.startswith("ERROR"): continue
+        f.write(line)
+
+f = open(f_cadi, "r")
 db_cadi = json.load(f)
 f.close()
 
@@ -61,15 +68,26 @@ f.close()
 # Clean up tenures results
 f_tenures = "/eos/user/t/tholmes/www/tova/other/tenures.json"
 
-f = open(f_tenures.replace(".json", "_raw.json"), "r")
+with open(f_tenures.replace(".json", "_raw.json"), "r") as f:
+    tenures_lines = f.readlines()
+with open(f_tenures, "w") as f:
+    for line in tenures_lines:
+        if line.startswith("ERROR"): continue
+        f.write(line)
+
+f = open(f_tenures, "r")
 db_tenures = json.load(f)
 f.close()
 
 for entry in db_tenures:
     if entry["src_position_level"]==None: entry["src_position_level"]=4
+    if entry["position"]=="Chairperson of Young Scientists Committee":
+        entry["first_name"] = "Muhammad Ansar"
+        entry["last_name"] = "Iqbal"
+        entry["cms_id"] = 11124
 
 db_tenures_sorted = sorted(db_tenures, key=lambda item: item["src_position_level"])
-db_tenures_management = filter(lambda item: (item["domain"]=="Management"), db_tenures_sorted)
+db_tenures_management = list(filter(lambda item: (item["domain"]=="Management"), db_tenures_sorted))
 
 f = open(f_tenures, "w")
 json.dump(db_tenures_management, f)
@@ -105,6 +123,7 @@ for b in boards:
     # Some little custom ordering (forcing these first)
     if b in ["mb", "eb"]: db["Office"] = []
     if b in ["cb", "eb"]: db["Board"] = []
+    if b in ["ac"]: db["Committee"] = []
     for entry in db_tenures_sorted:
         if entry["domain"] == boards[b]:
             key = entry["src_unit_type"]

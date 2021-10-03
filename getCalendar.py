@@ -4,6 +4,23 @@ import datetime
 
 today = datetime.date.today()
 
+urls = {
+        "CMS week": "https://indico.cern.ch/category/154/",
+        "Tracker week": "https://indico.cern.ch/category/1080/",
+        "LHCC": "https://indico.cern.ch/category/3427/",
+        "Induction": "https://indico.cern.ch/category/8630/",
+        "O&C": "https://indico.cern.ch/category/1382/",
+        "RRB": "https://indico.cern.ch/category/12324/",
+        "P2UG": "https://indico.cern.ch/category/11282/",
+        }
+
+def getURL(ev):
+    default_url = "https://indico.cern.ch/category/6803/"
+    if ev in urls: return urls[ev]
+    for url in urls:
+        if url in ev: return urls[url]
+    return default_url
+
 cal_file = "https://www.google.com/calendar/ical/dnfcb10nk2fj96tcippfoprpak%40group.calendar.google.com/public/basic.ics"
 tmp_cal = "/afs/cern.ch/user/t/tholmes/useful_files/cron_scripts/cms-info/cal.ics"
 json_file = "/eos/user/t/tholmes/www/tova/other/cal.json"
@@ -37,8 +54,9 @@ for event in events:
     except:
         continue
     if (edate - today).days < 21 and (edate - today).days > -5:
-        if event["SUMMARY"] not in ["FB", "MB"]:
-            ev_data = {"name": event["SUMMARY"], "url": "https://indico.cern.ch/category/154/", "date": edate.strftime("%d %b")+": ", "ndays": (edate - today).days}
+        if event["SUMMARY"] not in ["FB", "MB", "MB/FB"]:
+            url = getURL(event["SUMMARY"])
+            ev_data = {"name": event["SUMMARY"], "url": url, "date": edate.strftime("%d %b")+": ", "ndays": (edate - today).days}
             events_to_write.append(ev_data)
 
 if len(events_to_write)==0:
