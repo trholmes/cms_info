@@ -121,9 +121,13 @@ for b in boards:
     f = "/eos/user/t/tholmes/www/tova/other/%s.json"%b
     db = OrderedDict()
     # Some little custom ordering (forcing these first)
-    if b in ["mb", "eb"]: db["Office"] = []
-    if b in ["cb", "eb"]: db["Board"] = []
+    if b in ["mb", "eb", "fb"]: db["Office"] = []
+    if b in ["cb", "eb", "fb"]: db["Board"] = []
     if b in ["ac"]: db["Committee"] = []
+    if b == "fb":
+        db["Coordination Area"] = []
+        db["Subdetector"] = []
+        db["Funding Agency"] = []
     for entry in db_tenures_sorted:
         if entry["domain"] == boards[b]:
             key = entry["src_unit_type"]
