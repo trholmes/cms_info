@@ -115,6 +115,7 @@ boards = {
         "ta": "Trigger",
         "tea": "Technical",
         "ua": "Upgrade",
+        "sp": "Spokesperson",
         }
 collapse = ["cc", "coc", "ic", "pc", "sc", "co", "do", "eo", "oa", "pa", "ra", "ta", "tea", "ua"] # For these we won't actually display different sources
 for b in boards:
