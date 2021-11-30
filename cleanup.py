@@ -81,12 +81,10 @@ f.close()
 
 for entry in db_tenures:
     if entry["src_position_level"]==None: entry["src_position_level"]=4
-    if entry["position"]=="Chairperson of Young Scientists Committee":
-        entry["first_name"] = "Muhammad Ansar"
-        entry["last_name"] = "Iqbal"
-        entry["cms_id"] = 11124
+    if entry["position_level"]==None: entry["position_level"]=4
 
-db_tenures_sorted = sorted(db_tenures, key=lambda item: item["src_position_level"])
+db_tenures_sorted = sorted(db_tenures, key=lambda item: item["position_level"])
+#db_tenures_sorted = sorted(db_tenures, key=lambda item: item["src_position_level"])
 db_tenures_management = list(filter(lambda item: (item["domain"]=="Management"), db_tenures_sorted))
 
 f = open(f_tenures, "w")
