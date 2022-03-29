@@ -41,6 +41,7 @@ with open(f_cadi.replace(".json", "_raw.json"), "r") as f:
     cadi_lines = f.readlines()
 with open(f_cadi, "w") as f:
     for line in cadi_lines:
+        if line.startswith("WARNING"): continue
         if line.startswith("ERROR"): continue
         f.write(line)
 
@@ -73,6 +74,7 @@ with open(f_tenures.replace(".json", "_raw.json"), "r") as f:
 with open(f_tenures, "w") as f:
     for line in tenures_lines:
         if line.startswith("ERROR"): continue
+        if line.startswith("WARNING"): continue
         f.write(line)
 
 f = open(f_tenures, "r")
