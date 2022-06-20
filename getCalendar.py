@@ -8,7 +8,7 @@ urls = {
         "CMS week": "https://indico.cern.ch/category/154/",
         "Tracker week": "https://indico.cern.ch/category/1080/",
         "LHCC": "https://indico.cern.ch/category/3427/",
-        "Induction": "https://indico.cern.ch/category/8630/",
+        "Induction": "https://indico.cern.ch/category/14397/",
         "O&C": "https://indico.cern.ch/category/1382/",
         "RRB": "https://indico.cern.ch/category/12324/",
         "P2UG": "https://indico.cern.ch/category/11282/",
