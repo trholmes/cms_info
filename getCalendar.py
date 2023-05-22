@@ -36,7 +36,7 @@ def getEvents(ev_data):
                 continue
     return events
 
-def isSoon(event, days_from_now = 21, days_ago = 5):
+def isSoon(event, days_from_now = 14, days_ago = 5):
     try:
         time_str = ""
         for val in event:
@@ -102,6 +102,21 @@ for cal_file in ["https://indico.cern.ch/category/3249/events.ics", "https://ind
         is_soon, edate = isSoon(event, 10, 1)
         if is_soon:
             ev_data = {"name": "CERN Seminar: " + event["SUMMARY"], "url": event["URL"], "date": edate.strftime("%d %b")+": ", "ndays": (edate - today).days}
+            events_to_write.append(ev_data)
+
+## Add in Physics events
+for cal_file in ["https://indico.cern.ch/category/1304/events.ics?user_token=46464_KKxBLg2bPTWlvzJzUUgVRR3KFKxxvOF9wYA2A6jAnuM"]:
+    data = urllib2.urlopen(cal_file)
+    output = data.read()
+    with open(tmp_cal, 'w') as f:
+        f.write(output)
+    with open(tmp_cal, 'r') as f:
+        ev_data = f.readlines()
+    events = getEvents(ev_data)
+    for event in events:
+        is_soon, edate = isSoon(event, 10, 1)
+        if is_soon:
+            ev_data = {"name": event["SUMMARY"], "url": event["URL"], "date": edate.strftime("%d %b")+": ", "ndays": (edate - today).days}
             events_to_write.append(ev_data)
 
 ## Check if empty and package up in a json
