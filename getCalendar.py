@@ -36,7 +36,7 @@ def getEvents(ev_data):
                 continue
     return events
 
-def isSoon(event, days_from_now = 14, days_ago = 5):
+def isSoon(event, days_from_now = 21, days_ago = 5):
     try:
         time_str = ""
         for val in event:
@@ -72,37 +72,8 @@ for event in events:
             url = getURL(event["SUMMARY"])
             ev_data = {"name": event["SUMMARY"], "url": url, "date": edate.strftime("%d %b")+": ", "ndays": (edate - today).days}
             events_to_write.append(ev_data)
-
-## Also add approvals
-
-cal_file = "https://calendar.google.com/calendar/ical/teir7hdjshmfgvcl2jmopq186g%40group.calendar.google.com/public/basic.ics"
-data = urllib2.urlopen(cal_file)
-output = data.read()
-with open(tmp_cal, 'w') as f:
-    f.write(output)
-with open(tmp_cal, 'r') as f:
-    ev_data = f.readlines()
-events = getEvents(ev_data)
-for event in events:
-    is_soon, edate = isSoon(event, 21, 5)
-    if is_soon:
-        ev_data = {"name": event["SUMMARY"], "url": event["DESCRIPTION"], "date": edate.strftime("%d %b")+": ", "ndays": (edate - today).days}
-        events_to_write.append(ev_data)
-
-## Add in CERN EP and LHC seminars
-for cal_file in ["https://indico.cern.ch/category/3249/events.ics", "https://indico.cern.ch/category/3247/events.ics"]:
-    data = urllib2.urlopen(cal_file)
-    output = data.read()
-    with open(tmp_cal, 'w') as f:
-        f.write(output)
-    with open(tmp_cal, 'r') as f:
-        ev_data = f.readlines()
-    events = getEvents(ev_data)
-    for event in events:
-        is_soon, edate = isSoon(event, 10, 1)
-        if is_soon:
-            ev_data = {"name": "CERN Seminar: " + event["SUMMARY"], "url": event["URL"], "date": edate.strftime("%d %b")+": ", "ndays": (edate - today).days}
-            events_to_write.append(ev_data)
+print()
+print(events_to_write)
 
 ## Add in Physics events
 for cal_file in ["https://indico.cern.ch/category/1304/events.ics?user_token=46464_KKxBLg2bPTWlvzJzUUgVRR3KFKxxvOF9wYA2A6jAnuM"]:
@@ -118,6 +89,25 @@ for cal_file in ["https://indico.cern.ch/category/1304/events.ics?user_token=464
         if is_soon:
             ev_data = {"name": event["SUMMARY"], "url": event["URL"], "date": edate.strftime("%d %b")+": ", "ndays": (edate - today).days}
             events_to_write.append(ev_data)
+print()
+print(events_to_write)
+
+## Add in CERN EP and LHC seminars
+for cal_file in ["https://indico.cern.ch/category/3249/events.ics", "https://indico.cern.ch/category/3247/events.ics"]:
+    data = urllib2.urlopen(cal_file)
+    output = data.read()
+    with open(tmp_cal, 'w') as f:
+        f.write(output)
+    with open(tmp_cal, 'r') as f:
+        ev_data = f.readlines()
+    events = getEvents(ev_data)
+    for event in events:
+        is_soon, edate = isSoon(event, 10, 1)
+        if is_soon:
+            ev_data = {"name": "CERN Seminar: " + event["SUMMARY"], "url": event["URL"], "date": edate.strftime("%d %b")+": ", "ndays": (edate - today).days}
+            events_to_write.append(ev_data)
+print()
+print(events_to_write)
 
 ## Check if empty and package up in a json
 
@@ -131,3 +121,41 @@ f = open(json_file, "w")
 json.dump(sorted_events, f)
 f.close()
 
+print()
+print(events_to_write)
+print(sorted_events)
+
+
+###### Make a separate file for PC events
+json_file = "/eos/user/t/tholmes/www/tova/other/cal_physics.json"
+events_to_write = []
+
+## add approvals
+
+cal_file = "https://calendar.google.com/calendar/ical/teir7hdjshmfgvcl2jmopq186g%40group.calendar.google.com/public/basic.ics"
+data = urllib2.urlopen(cal_file)
+output = data.read()
+with open(tmp_cal, 'w') as f:
+    f.write(output)
+with open(tmp_cal, 'r') as f:
+    ev_data = f.readlines()
+events = getEvents(ev_data)
+for event in events:
+    is_soon, edate = isSoon(event, 21, 5)
+    if is_soon:
+        ev_data = {"name": event["SUMMARY"], "url": event["DESCRIPTION"], "date": edate.strftime("%d %b")+": ", "ndays": (edate - today).days}
+        events_to_write.append(ev_data)
+
+## Check if empty and package up in a json
+
+if len(events_to_write)==0:
+    ev_data = {"name": "None", "url": "/cms-internal/cms-calendar/", "date": "", "ndays": 0}
+    events_to_write.append(ev_data)
+
+sorted_events = sorted(events_to_write, key=lambda item: item["ndays"])
+print(events_to_write)
+print(sorted_events)
+
+f = open(json_file, "w")
+json.dump(sorted_events, f)
+f.close()
