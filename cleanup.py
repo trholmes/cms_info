@@ -2,6 +2,21 @@ import json
 import datetime
 from collections import OrderedDict
 
+
+# Make function that returns the primary role of an ex-officio member
+def getPrimaryRole(entry, full_db):
+    my_id = entry["cms_id"]
+    for entry in full_db:
+        if entry["cms_id"]==my_id and entry["ex_officio_rule_id"]==None:
+            val = entry["domain"]
+            if val in ["Collaboration"]: val += " Board"
+            if val in ["Physics", "Technical", "Offline & Computing", "Run", "Physics Performance & Datasets", "Trigger", "Upgrade"]: val += " Coordination"
+            if val in ["International", "Awards", "Authorship", "Publications", "Detector Awards", "Industrial Awards", "Career", "Conference", "Schools", "Thesis Awards", "Data Preservation and Open Access"]: val += " Committee"
+            if val in ["Diversity", "Communication", "Engagement"]: val += " Office"
+            if val in ["Spokesperson"]: val += " Team"
+            return val
+    return "Member"
+
 # Clean up CINCO results
 today = datetime.date.today()
 year = str(today.year)
@@ -93,6 +108,7 @@ f = open(f_tenures, "w")
 json.dump(db_tenures_management, f)
 f.close()
 
+
 # Make separate pages for board memberships so I can sort them nicely
 boards = {
         "mb": "Management",
@@ -117,7 +133,7 @@ boards = {
         "ua": "Upgrade",
         "sp": "Spokesperson",
         }
-collapse = ["cc", "coc", "ic", "pc", "sc", "co", "do", "eo", "oa", "pa", "ra", "ta", "tea", "ua"] # For these we won't actually display different sources
+collapse = ["fb", "eb", "mb", "cc", "ic", "sc", "co", "do", "eo", "oa", "pa", "ra", "ta", "tea", "ua"] # For these we won't actually display different sources
 for b in boards:
     f = "/eos/user/t/tholmes/www/tova/other/%s.json"%b
     db = OrderedDict()
@@ -131,7 +147,11 @@ for b in boards:
         db["Funding Agency"] = []
     for entry in db_tenures_sorted:
         if entry["domain"] == boards[b]:
-            key = entry["src_unit_type"]
+            if not entry["ex_officio_rule_id"]==None:
+                key = "Ex-Officio Members"
+                entry["position"] = getPrimaryRole(entry, db_tenures_sorted)
+            else:
+                key = entry["src_unit_type"]
             if b in collapse: key = "all"
             if key not in db: db[key] = []
             db[key].append(entry)
