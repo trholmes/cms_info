@@ -72,8 +72,6 @@ for event in events:
             url = getURL(event["SUMMARY"])
             ev_data = {"name": event["SUMMARY"], "url": url, "date": edate.strftime("%d %b")+": ", "ndays": (edate - today).days}
             events_to_write.append(ev_data)
-print()
-print(events_to_write)
 
 ## Add in Physics events
 for cal_file in ["https://indico.cern.ch/category/1304/events.ics?user_token=46464_KKxBLg2bPTWlvzJzUUgVRR3KFKxxvOF9wYA2A6jAnuM"]:
@@ -89,8 +87,6 @@ for cal_file in ["https://indico.cern.ch/category/1304/events.ics?user_token=464
         if is_soon:
             ev_data = {"name": event["SUMMARY"], "url": event["URL"], "date": edate.strftime("%d %b")+": ", "ndays": (edate - today).days}
             events_to_write.append(ev_data)
-print()
-print(events_to_write)
 
 ## Add in CERN EP and LHC seminars
 for cal_file in ["https://indico.cern.ch/category/3249/events.ics", "https://indico.cern.ch/category/3247/events.ics"]:
@@ -106,8 +102,6 @@ for cal_file in ["https://indico.cern.ch/category/3249/events.ics", "https://ind
         if is_soon:
             ev_data = {"name": "CERN Seminar: " + event["SUMMARY"], "url": event["URL"], "date": edate.strftime("%d %b")+": ", "ndays": (edate - today).days}
             events_to_write.append(ev_data)
-print()
-print(events_to_write)
 
 ## Check if empty and package up in a json
 
@@ -120,10 +114,6 @@ sorted_events = sorted(events_to_write, key=lambda item: item["ndays"])
 f = open(json_file, "w")
 json.dump(sorted_events, f)
 f.close()
-
-print()
-print(events_to_write)
-print(sorted_events)
 
 
 ###### Make a separate file for PC events
@@ -153,8 +143,6 @@ if len(events_to_write)==0:
     events_to_write.append(ev_data)
 
 sorted_events = sorted(events_to_write, key=lambda item: item["ndays"])
-print(events_to_write)
-print(sorted_events)
 
 f = open(json_file, "w")
 json.dump(sorted_events, f)
