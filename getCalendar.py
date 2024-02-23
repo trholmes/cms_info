@@ -1,6 +1,7 @@
 import json
-import urllib2
 import datetime
+#import urllib2
+from urllib.request import urlopen
 
 today = datetime.date.today()
 
@@ -57,9 +58,9 @@ json_file = "/eos/user/t/tholmes/www/tova/other/cal.json"
 ## Grab events from the CMS calendar
 
 cal_file = "https://www.google.com/calendar/ical/dnfcb10nk2fj96tcippfoprpak%40group.calendar.google.com/public/basic.ics"
-data = urllib2.urlopen(cal_file)
+data = urlopen(cal_file)
 output = data.read()
-with open(tmp_cal, 'w') as f:
+with open(tmp_cal, 'wb') as f:
     f.write(output)
 with open(tmp_cal, 'r') as f:
     ev_data = f.readlines()
@@ -75,9 +76,9 @@ for event in events:
 
 ## Add in Physics events
 for cal_file in ["https://indico.cern.ch/category/1304/events.ics?user_token=46464_KKxBLg2bPTWlvzJzUUgVRR3KFKxxvOF9wYA2A6jAnuM"]:
-    data = urllib2.urlopen(cal_file)
+    data = urlopen(cal_file)
     output = data.read()
-    with open(tmp_cal, 'w') as f:
+    with open(tmp_cal, 'wb') as f:
         f.write(output)
     with open(tmp_cal, 'r') as f:
         ev_data = f.readlines()
@@ -90,9 +91,9 @@ for cal_file in ["https://indico.cern.ch/category/1304/events.ics?user_token=464
 
 ## Add in CERN EP and LHC seminars
 for cal_file in ["https://indico.cern.ch/category/3249/events.ics", "https://indico.cern.ch/category/3247/events.ics"]:
-    data = urllib2.urlopen(cal_file)
+    data = urlopen(cal_file)
     output = data.read()
-    with open(tmp_cal, 'w') as f:
+    with open(tmp_cal, 'wb') as f:
         f.write(output)
     with open(tmp_cal, 'r') as f:
         ev_data = f.readlines()
@@ -123,9 +124,9 @@ events_to_write = []
 ## add approvals
 
 cal_file = "https://calendar.google.com/calendar/ical/teir7hdjshmfgvcl2jmopq186g%40group.calendar.google.com/public/basic.ics"
-data = urllib2.urlopen(cal_file)
+data = urlopen(cal_file)
 output = data.read()
-with open(tmp_cal, 'w') as f:
+with open(tmp_cal, 'wb') as f:
     f.write(output)
 with open(tmp_cal, 'r') as f:
     ev_data = f.readlines()

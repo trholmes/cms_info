@@ -2,18 +2,26 @@ import json
 import datetime
 from collections import OrderedDict
 
+do_cinco=True
 
 # Make function that returns the primary role of an ex-officio member
 def getPrimaryRole(entry, full_db):
     my_id = entry["cms_id"]
-    for entry in full_db:
-        if entry["cms_id"]==my_id and entry["ex_officio_rule_id"]==None:
-            val = entry["domain"]
+    source_unit_id = entry["src_unit_id"]
+    for dbentry in full_db:
+        if dbentry["cms_id"]==my_id and dbentry["ex_officio_rule_id"]==None and source_unit_id == dbentry["unit_id"]:
+
+            val = dbentry["domain"]
             if val in ["Collaboration"]: val += " Board"
-            if val in ["Physics", "Technical", "Offline & Computing", "Run", "Physics Performance & Datasets", "Trigger", "Upgrade"]: val += " Coordination"
+            if val in ["Physics", "Technical", "Offline & Computing", "Run", "Upgrade"]: val += " Coordination"
+            #if val in ["Physics", "Technical", "Offline & Computing", "Run", "Physics Performance & Datasets", "Trigger", "Upgrade"]: val += " Coordination"
             if val in ["International", "Awards", "Authorship", "Publications", "Detector Awards", "Industrial Awards", "Career", "Conference", "Schools", "Thesis Awards", "Data Preservation and Open Access"]: val += " Committee"
             if val in ["Diversity", "Communication", "Engagement"]: val += " Office"
             if val in ["Spokesperson"]: val += " Team"
+            if val in ["Resources"]:
+                if dbentry["position"] == "Manager": val = "Resources Manager"
+                elif dbentry["position"] == "Deputy": val = "Deputy Resources Manager"
+
             return val
     return "Member"
 
@@ -21,33 +29,34 @@ def getPrimaryRole(entry, full_db):
 today = datetime.date.today()
 year = str(today.year)
 
-f_cinco = "/eos/user/t/tholmes/www/tova/other/cinco.json"
+if do_cinco:
+    f_cinco = "/eos/user/t/tholmes/www/tova/other/cinco.json"
 
-f = open(f_cinco.replace(".json", "_raw.json"), "r")
-db_cinco = json.load(f)
-f.close()
+    f = open(f_cinco.replace(".json", "_raw.json"), "r")
+    db_cinco = json.load(f)
+    f.close()
 
-new_cinco = []
-for entry in db_cinco["JConference"]:
-    if entry["ShortName"]=="":
-        entry["ShortName"] = entry["Name"]
-    if year in entry["Date"]:
-        entry["Date"] = entry["Date"].replace(year,"").strip()
-    if "virtual" in entry["Location"] or "Virtual" in entry["Location"]:
-        entry["Location"] = "Virtual"
-    if "SCHOOL" in entry["Category"]:
-        continue
-    if entry["CategoryDescription"]=="CERN seminars":
-        continue
-    if len(db_cinco)>10:
-        if entry["Category"] in ["NATCONF", "SMALLCON"]:
+    new_cinco = []
+    for entry in db_cinco["JConference"]:
+        if entry["ShortName"]=="":
+            entry["ShortName"] = entry["Name"]
+        if year in entry["Date"]:
+            entry["Date"] = entry["Date"].replace(year,"").strip()
+        if "virtual" in entry["Location"] or "Virtual" in entry["Location"]:
+            entry["Location"] = "Virtual"
+        if "SCHOOL" in entry["Category"]:
             continue
-    if len(new_cinco)>5: continue
-    new_cinco.append(entry)
+        if entry["CategoryDescription"]=="CERN seminars":
+            continue
+        if len(db_cinco)>10:
+            if entry["Category"] in ["NATCONF", "SMALLCON"]:
+                continue
+        if len(new_cinco)>5: continue
+        new_cinco.append(entry)
 
-f = open(f_cinco, "w")
-json.dump(new_cinco, f)
-f.close()
+    f = open(f_cinco, "w")
+    json.dump(new_cinco, f)
+    f.close()
 
 # Clean up CADI results
 f_cadi = "/eos/user/t/tholmes/www/tova/other/cadi.json"
@@ -133,20 +142,17 @@ boards = {
         "ua": "Upgrade",
         "sp": "Spokesperson",
         }
-collapse = ["fb", "eb", "mb", "cc", "ic", "sc", "co", "do", "eo", "oa", "pa", "ra", "ta", "tea", "ua"] # For these we won't actually display different sources
+collapse = ["eb", "mb", "cc", "ic", "sc", "co", "do", "eo", "oa", "pa", "ra", "ta", "tea", "ua"] # For these we won't actually display different sources
 for b in boards:
     f = "/eos/user/t/tholmes/www/tova/other/%s.json"%b
     db = OrderedDict()
     # Some little custom ordering (forcing these first)
-    if b in ["mb", "eb", "fb"]: db["Office"] = []
+    if b in ["mb", "eb"]: db["Office"] = []
     if b in ["cb", "eb", "fb"]: db["Board"] = []
     if b in ["ac"]: db["Committee"] = []
-    if b == "fb":
-        db["Coordination Area"] = []
-        db["Subdetector"] = []
-        db["Funding Agency"] = []
     for entry in db_tenures_sorted:
         if entry["domain"] == boards[b]:
+            if entry["domain"] == "Publications" and entry["src_unit_type"] == "Editorial Board": continue
             if not entry["ex_officio_rule_id"]==None:
                 key = "Ex-Officio Members"
                 entry["position"] = getPrimaryRole(entry, db_tenures_sorted)
