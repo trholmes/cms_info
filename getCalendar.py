@@ -52,8 +52,10 @@ def isSoon(event, days_from_now = 21, days_ago = 5):
         return True, edate
     return False, edate
 
-tmp_cal = "/afs/cern.ch/user/t/tholmes/useful_files/cron_scripts/cms-info/cal.ics"
-json_file = "/eos/user/t/tholmes/www/tova/other/cal.json"
+# tmp_cal = "/afs/cern.ch/user/t/tholmes/useful_files/cron_scripts/cms-info/cal.ics"
+# json_file = "/eos/user/t/tholmes/www/tova/other/cal.json"
+tmp_cal = "./cal.ics"
+json_file = "/eos/project-c/cmsweb/www/icmssecr/cms-info/cal.json"
 
 ## Grab events from the CMS calendar
 
@@ -80,7 +82,7 @@ for cal_file in ["https://indico.cern.ch/category/1304/events.ics?user_token=464
     output = data.read()
     with open(tmp_cal, 'wb') as f:
         f.write(output)
-    with open(tmp_cal, 'r') as f:
+    with open(tmp_cal, 'r', encoding='utf-8') as f:
         ev_data = f.readlines()
     events = getEvents(ev_data)
     for event in events:
@@ -95,7 +97,7 @@ for cal_file in ["https://indico.cern.ch/category/3249/events.ics", "https://ind
     output = data.read()
     with open(tmp_cal, 'wb') as f:
         f.write(output)
-    with open(tmp_cal, 'r') as f:
+    with open(tmp_cal, 'r', encoding='utf-8') as f:
         ev_data = f.readlines()
     events = getEvents(ev_data)
     for event in events:
@@ -118,7 +120,8 @@ f.close()
 
 
 ###### Make a separate file for PC events
-json_file = "/eos/user/t/tholmes/www/tova/other/cal_physics.json"
+# json_file = "/eos/user/t/tholmes/www/tova/other/cal_physics.json"
+json_file = "/eos/project-c/cmsweb/www/icmssecr/cms-info/cal_physics.json"
 events_to_write = []
 
 ## add approvals
@@ -128,7 +131,7 @@ data = urlopen(cal_file)
 output = data.read()
 with open(tmp_cal, 'wb') as f:
     f.write(output)
-with open(tmp_cal, 'r') as f:
+with open(tmp_cal, 'r', encoding='utf-8') as f:
     ev_data = f.readlines()
 events = getEvents(ev_data)
 for event in events:

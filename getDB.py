@@ -6,6 +6,8 @@ import subprocess
 url = sys.argv[1]
 args = sys.argv[2:]
 
+urlAuth = 'https://icms.cern.ch/tools'
+
 curlArgs = ''
 if args: curlArgs = ' '.join(args).split('|',1)[0]
 
@@ -16,8 +18,11 @@ if args: curlArgs = ' '.join(args).split('|',1)[0]
 #cmd += 'curl --silent --cookie-jar ~/private/cadiana.sso --cookie ~/private/cadiana.sso -k -L %s ' % (url,)
 
 # these are for the new SSO:
-cmd = 'auth-get-sso-cookie --outfile ~/private/sso-auth-cookie -u \'%s\' ;' % (url,)
-cmd += 'curl --silent --cookie-jar ~/private/sso-auth-cookie --cookie ~/private/sso-auth-cookie -k -L \'%s\' ' % (url,)
+cookieFileName = '~/private/sso-auth-cookie-cms_info'
+cmd = f'rm -f {cookieFileName};'
+cmd += f'auth-get-sso-cookie --outfile {cookieFileName} -u \'{urlAuth}\';'
+cmd += f'curl --silent -b  {cookieFileName} -k -L \'{url}\';'
+cmd += f'rm -f {cookieFileName};'
 
 if curlArgs != '':
    cmd = '%s %s' % (cmd, curlArgs )
