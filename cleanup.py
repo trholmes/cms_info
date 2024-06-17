@@ -30,7 +30,7 @@ today = datetime.date.today()
 year = str(today.year)
 
 if do_cinco:
-    f_cinco = "/eos/user/t/tholmes/www/tova/other/cinco.json"
+    f_cinco = "/eos/project-c/cmsweb/www/icmssecr/cms-info/cinco.json"
 
     f = open(f_cinco.replace(".json", "_raw.json"), "r")
     db_cinco = json.load(f)
@@ -59,7 +59,7 @@ if do_cinco:
     f.close()
 
 # Clean up CADI results
-f_cadi = "/eos/user/t/tholmes/www/tova/other/cadi.json"
+f_cadi = "/eos/project-c/cmsweb/www/icmssecr/cms-info/cadi.json"
 
 with open(f_cadi.replace(".json", "_raw.json"), "r") as f:
     cadi_lines = f.readlines()
@@ -69,7 +69,7 @@ with open(f_cadi, "w") as f:
         if line.startswith("ERROR"): continue
         f.write(line)
 
-f = open(f_cadi, "r")
+f = open(f_cadi, "r", encoding='utf-8')
 db_cadi = json.load(f)
 f.close()
 
@@ -91,7 +91,7 @@ json.dump(db_cadi, f)
 f.close()
 
 # Clean up tenures results
-f_tenures = "/eos/user/t/tholmes/www/tova/other/tenures.json"
+f_tenures = "/eos/project-c/cmsweb/www/icmssecr/cms-info/tenures.json"
 
 with open(f_tenures.replace(".json", "_raw.json"), "r") as f:
     tenures_lines = f.readlines()
@@ -101,7 +101,7 @@ with open(f_tenures, "w") as f:
         if line.startswith("WARNING"): continue
         f.write(line)
 
-f = open(f_tenures, "r")
+f = open(f_tenures, "r", encoding='utf-8')
 db_tenures = json.load(f)
 f.close()
 
@@ -144,7 +144,7 @@ boards = {
         }
 collapse = ["eb", "mb", "cc", "ic", "sc", "co", "do", "eo", "oa", "pa", "ra", "ta", "tea", "ua"] # For these we won't actually display different sources
 for b in boards:
-    f = "/eos/user/t/tholmes/www/tova/other/%s.json"%b
+    f = "/eos/project-c/cmsweb/www/icmssecr/cms-info/%s.json"%b
     db = OrderedDict()
     # Some little custom ordering (forcing these first)
     if b in ["mb", "eb"]: db["Office"] = []
@@ -174,7 +174,7 @@ boards = {
         "pc": "Publications",
 }
 for b in boards:
-    f = "/eos/user/t/tholmes/www/tova/other/%s.json"%b
+    f = "/eos/project-c/cmsweb/www/icmssecr/cms-info/%s.json"%b
     db = []
     for entry in db_tenures_sorted:
         if entry["domain"] == boards[b]:

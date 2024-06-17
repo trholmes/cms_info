@@ -12,17 +12,23 @@ if args: curlArgs = ' '.join(args).split('|',1)[0]
 # print( 'got: %s %s ' % (url, sys.argv[1:]) )
 
 # use these two lines for the old SSO
-cmd = 'cern-get-sso-cookie --krb --outfile ~/private/cadiana.sso --reprocess -u %s ;' % (url,)
-cmd += 'curl --silent --cookie-jar ~/private/cadiana.sso --cookie ~/private/cadiana.sso -k -L %s ' % (url,)
+cookieFileName = '~/private/cadiana-cookie-cms_info'
+cmd = f'rm -f {cookieFileName};'
+cmd += f'cern-get-sso-cookie --outfile {cookieFileName} -u {url} ;'
+cmd += f'curl --silent -b {cookieFileName} -k -L {url} ;'
+cmd += f'rm -f {cookieFileName};'
 
 # these are for the new SSO:
-#cmd = 'auth-get-sso-cookie --outfile ~/private/sso-auth-cookie -u \'%s\' ;' % (url,)
-#cmd += 'curl --silent --cookie-jar ~/private/sso-auth-cookie --cookie ~/private/sso-auth-cookie -k -L \'%s\' ' % (url,)
+# cookieFileName = '~/private/sso-auth-cookie-cms_info'
+# cmd = f'rm -f {cookieFileName};'
+# cmd += f'auth-get-sso-cookie --outfile {cookieFileName} -u \'{url}\';'
+# cmd += f'curl --silent -b  {cookieFileName} -k -L \'{url}\';'
+# cmd += f'rm -f {cookieFileName};'
 
 if curlArgs != '':
    cmd = '%s %s' % (cmd, curlArgs )
 
-# print ( 'cmd: %s ' % (cmd.replace(';', '\n'),) )
+# print ( 'cmd:\n %s ' % (cmd.replace(';', '\n'),) )
 
 res=''
 try:
