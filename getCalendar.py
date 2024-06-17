@@ -38,6 +38,8 @@ def getEvents(ev_data):
     return events
 
 def isSoon(event, days_from_now = 21, days_ago = 5):
+
+    print(event)
     try:
         time_str = ""
         for val in event:

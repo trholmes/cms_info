@@ -27,9 +27,8 @@ if [ "${ret}" == "0" ]; then
     ssh -q lxplus7 "cd cms_info; python3 ./getOldDB.py 'https://cms-mgt-conferences.web.cern.ch/conferences/conferences_list_short.aspx' > ${loc}cinco_raw.json "
 fi
 
-
-
 python3 ./getDB.py 'https://icms.cern.ch/tools-api/restplus/cadi/xeb_report?xeb_report_period=14' > ${loc}cadi_raw.json
+python3 ./getDB.py 'https://icms.cern.ch/tools-api/restplus/org_chart/job_openings' > ${loc}nominations_raw.json
 
 python3 ./cleanup.py
 python3 ./getCalendar.py
