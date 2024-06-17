@@ -58,6 +58,22 @@ if do_cinco:
     json.dump(new_cinco, f)
     f.close()
 
+# Clean up nominations
+f_nominations = "/eos/project-c/cmsweb/www/icmssecr/cms-info/nominations.json"
+f = open(f_nominations.replace(".json", "_raw.json"), "r")
+db_nominations = json.load(f)
+f.close()
+
+new_nominations = []
+for entry in db_nominations:
+    deadline = date_object = datetime.datetime.strptime(entry['nominations_deadline'], "%Y-%m-%d")
+    entry["due_date"] = deadline.strftime("%b %d")
+    if (deadline.date() - today).days > -14:
+        new_nominations.append(entry)
+f = open(f_nominations, "w")
+json.dump(new_nominations, f)
+f.close()
+
 # Clean up CADI results
 f_cadi = "/eos/project-c/cmsweb/www/icmssecr/cms-info/cadi.json"
 
