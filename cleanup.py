@@ -68,7 +68,7 @@ new_nominations = []
 for entry in db_nominations:
     deadline = date_object = datetime.datetime.strptime(entry['nominations_deadline'], "%Y-%m-%d")
     entry["due_date"] = deadline.strftime("%b %d")
-    if (deadline.date() - today).days > -14:
+    if (deadline.date() - today).days > -14 and entry['status'] == 'active':
         new_nominations.append(entry)
 f = open(f_nominations, "w")
 json.dump(new_nominations, f)
