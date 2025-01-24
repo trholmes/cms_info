@@ -19,7 +19,7 @@ def getURL(ev):
     default_url = "https://indico.cern.ch/category/6803/"
     if ev.lower() in urls: return urls[ev.lower()]
     for url in urls:
-        if url in ev: return urls[url]
+        if url in ev.lower(): return urls[url]
     return default_url
 
 def getEvents(ev_data):
@@ -39,7 +39,6 @@ def getEvents(ev_data):
 
 def isSoon(event, days_from_now = 21, days_ago = 5):
 
-    print(event)
     try:
         time_str = ""
         for val in event:
@@ -74,6 +73,9 @@ for event in events:
     is_soon, edate = isSoon(event)
     if is_soon:
         if event["SUMMARY"] not in ["FB", "MB", "MB/FB"]:
+            if "Induction" in event["SUMMARY"]:
+                print(event)
+                print(getURL(event["SUMMARY"]))
             url = getURL(event["SUMMARY"])
             ev_data = {"name": event["SUMMARY"], "url": url, "date": edate.strftime("%d %b")+": ", "ndays": (edate - today).days}
             events_to_write.append(ev_data)
