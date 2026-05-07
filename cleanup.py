@@ -33,7 +33,11 @@ if do_cinco:
     f_cinco = "/eos/project-c/cmsweb/www/icmssecr/cms-info/cinco.json"
 
     f = open(f_cinco.replace(".json", "_raw.json"), "r")
+    try:
     db_cinco = json.load(f)
+    except json.decoder.JSONDecodeError as e:
+        print( f'ERROR when trying to read json from cinco - got: {str(e)} ' )
+        [ print( f'{x}' ) for x in f.readlines()[:5] ]
     f.close()
 
     new_cinco = []
@@ -158,7 +162,7 @@ boards = {
         "ua": "Upgrade",
         "sp": "Spokesperson",
         }
-collapse = ["mb", "eb", "cc", "ic", "sc", "co", "do", "eo", "oa", "pa", "ra", "ta", "tea", "ua"] # For these we won't actually display different sources
+collapse = ["eb", "mb", "cc", "ic", "sc", "co", "do", "eo", "oa", "pa", "ra", "ta", "tea", "ua"] # For these we won't actually display different sources
 for b in boards:
     f = "/eos/project-c/cmsweb/www/icmssecr/cms-info/%s.json"%b
     db = OrderedDict()
