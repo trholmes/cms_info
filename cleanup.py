@@ -158,12 +158,12 @@ boards = {
         "ua": "Upgrade",
         "sp": "Spokesperson",
         }
-collapse = ["eb", "mb", "cc", "ic", "sc", "co", "do", "eo", "oa", "pa", "ra", "ta", "tea", "ua"] # For these we won't actually display different sources
+collapse = ["mb", "eb", "cc", "ic", "sc", "co", "do", "eo", "oa", "pa", "ra", "ta", "tea", "ua"] # For these we won't actually display different sources
 for b in boards:
     f = "/eos/project-c/cmsweb/www/icmssecr/cms-info/%s.json"%b
     db = OrderedDict()
     # Some little custom ordering (forcing these first)
-    if b in ["mb", "eb"]: db["Office"] = []
+    if b in ["eb"]: db["Office"] = []
     if b in ["cb", "eb", "fb"]: db["Board"] = []
     if b in ["ac"]: db["Committee"] = []
     for entry in db_tenures_sorted:
@@ -177,6 +177,14 @@ for b in boards:
             if b in collapse: key = "all"
             if key not in db: db[key] = []
             db[key].append(entry)
+
+    # Manual sorting for the Management Board
+    if b in ["mb"]:
+        preferred_positions = ["Spokesperson Team", "Secretary", "Collaboration Board", "Resources Manager", "Engagement Office", "Spokesperson & Technical Coordination", "Advisor"]
+        rank = {position: i for i, position in enumerate(preferred_positions)}
+        for members in db.values():
+            members.sort(key=lambda entry: rank.get(entry.get("position"), len(rank)))
+
     mod_db = []
     for entry in db:
         mod_db.append({"type":entry, "members":db[entry]})
