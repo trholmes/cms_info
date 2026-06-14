@@ -7,14 +7,10 @@ from urllib.parse import urlparse
 url = sys.argv[1]
 args = sys.argv[2:]
 
-<<<<<<< HEAD
 res = urlparse( url )
 urlAuth = f'{res.scheme}://{res.netloc}'
 if 'icms.cern' in  res.netloc: urlAuth += '/tools'
 # print( f'got urlAuth: {urlAuth}' )
-=======
-urlAuth = 'https://icms.cern.ch/tools'
->>>>>>> origin/main
 
 curlArgs = ''
 if args: curlArgs = ' '.join(args).split('|',1)[0]
@@ -30,11 +26,7 @@ cookieFileName = '~/private/sso-auth-cookie-cms_info'
 cmd = f'rm -f {cookieFileName};'
 cmd += f'auth-get-sso-cookie --outfile {cookieFileName} -u \'{urlAuth}\';'
 cmd += f'curl --silent -b  {cookieFileName} -k -L \'{url}\';'
-<<<<<<< HEAD
 # cmd += f'rm -f {cookieFileName};'
-=======
-cmd += f'rm -f {cookieFileName};'
->>>>>>> origin/main
 
 if curlArgs != '':
    cmd = '%s %s' % (cmd, curlArgs )

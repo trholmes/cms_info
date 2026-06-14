@@ -34,11 +34,7 @@ if do_cinco:
 
     f = open(f_cinco.replace(".json", "_raw.json"), "r")
     try:
-<<<<<<< HEAD
         db_cinco = json.load(f)
-=======
-    db_cinco = json.load(f)
->>>>>>> origin/main
     except json.decoder.JSONDecodeError as e:
         print( f'ERROR when trying to read json from cinco - got: {str(e)} ' )
         [ print( f'{x}' ) for x in f.readlines()[:5] ]
