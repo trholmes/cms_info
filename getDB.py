@@ -2,11 +2,15 @@
 
 import sys
 import subprocess
+from urllib.parse import urlparse
 
 url = sys.argv[1]
 args = sys.argv[2:]
 
-urlAuth = 'https://icms.cern.ch/tools'
+res = urlparse( url )
+urlAuth = f'{res.scheme}://{res.netloc}'
+if 'icms.cern' in  res.netloc: urlAuth += '/tools'
+# print( f'got urlAuth: {urlAuth}' )
 
 curlArgs = ''
 if args: curlArgs = ' '.join(args).split('|',1)[0]
@@ -22,7 +26,7 @@ cookieFileName = '~/private/sso-auth-cookie-cms_info'
 cmd = f'rm -f {cookieFileName};'
 cmd += f'auth-get-sso-cookie --outfile {cookieFileName} -u \'{urlAuth}\';'
 cmd += f'curl --silent -b  {cookieFileName} -k -L \'{url}\';'
-cmd += f'rm -f {cookieFileName};'
+# cmd += f'rm -f {cookieFileName};'
 
 if curlArgs != '':
    cmd = '%s %s' % (cmd, curlArgs )
@@ -36,4 +40,3 @@ try:
 except Exception as e:
     print ( "ERROR: got: %s" % (str(e),) )
     print ( "    output: %s " % (str(res)) )
-

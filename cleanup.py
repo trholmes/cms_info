@@ -33,7 +33,11 @@ if do_cinco:
     f_cinco = "/eos/project-c/cmsweb/www/icmssecr/cms-info/cinco.json"
 
     f = open(f_cinco.replace(".json", "_raw.json"), "r")
-    db_cinco = json.load(f)
+    try:
+        db_cinco = json.load(f)
+    except json.decoder.JSONDecodeError as e:
+        print( f'ERROR when trying to read json from cinco - got: {str(e)} ' )
+        [ print( f'{x}' ) for x in f.readlines()[:5] ]
     f.close()
 
     new_cinco = []
@@ -57,6 +61,22 @@ if do_cinco:
     f = open(f_cinco, "w")
     json.dump(new_cinco, f)
     f.close()
+
+# Clean up nominations
+f_nominations = "/eos/project-c/cmsweb/www/icmssecr/cms-info/nominations.json"
+f = open(f_nominations.replace(".json", "_raw.json"), "r")
+db_nominations = json.load(f)
+f.close()
+
+new_nominations = []
+for entry in db_nominations:
+    deadline = date_object = datetime.datetime.strptime(entry['nominations_deadline'], "%Y-%m-%d")
+    entry["due_date"] = deadline.strftime("%b %d")
+    if (deadline.date() - today).days > -14 and entry['status'] == 'active':
+        new_nominations.append(entry)
+f = open(f_nominations, "w")
+json.dump(new_nominations, f)
+f.close()
 
 # Clean up CADI results
 f_cadi = "/eos/project-c/cmsweb/www/icmssecr/cms-info/cadi.json"
@@ -147,7 +167,7 @@ for b in boards:
     f = "/eos/project-c/cmsweb/www/icmssecr/cms-info/%s.json"%b
     db = OrderedDict()
     # Some little custom ordering (forcing these first)
-    if b in ["mb", "eb"]: db["Office"] = []
+    if b in ["eb"]: db["Office"] = []
     if b in ["cb", "eb", "fb"]: db["Board"] = []
     if b in ["ac"]: db["Committee"] = []
     for entry in db_tenures_sorted:
@@ -161,6 +181,14 @@ for b in boards:
             if b in collapse: key = "all"
             if key not in db: db[key] = []
             db[key].append(entry)
+
+    # Manual sorting for the Management Board
+    if b in ["mb"]:
+        preferred_positions = ["Spokesperson Team", "Secretary", "Collaboration Board", "Resources Manager", "Engagement Office", "Spokesperson & Technical Coordination", "Advisor"]
+        rank = {position: i for i, position in enumerate(preferred_positions)}
+        for members in db.values():
+            members.sort(key=lambda entry: rank.get(entry.get("position"), len(rank)))
+
     mod_db = []
     for entry in db:
         mod_db.append({"type":entry, "members":db[entry]})

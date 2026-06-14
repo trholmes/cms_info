@@ -19,7 +19,7 @@ def getURL(ev):
     default_url = "https://indico.cern.ch/category/6803/"
     if ev.lower() in urls: return urls[ev.lower()]
     for url in urls:
-        if url in ev: return urls[url]
+        if url in ev.lower(): return urls[url]
     return default_url
 
 def getEvents(ev_data):
