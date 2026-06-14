@@ -38,6 +38,7 @@ def getEvents(ev_data):
     return events
 
 def isSoon(event, days_from_now = 21, days_ago = 5):
+
     try:
         time_str = ""
         for val in event:
@@ -72,6 +73,9 @@ for event in events:
     is_soon, edate = isSoon(event)
     if is_soon:
         if event["SUMMARY"] not in ["FB", "MB", "MB/FB"]:
+            if "Induction" in event["SUMMARY"]:
+                print(event)
+                print(getURL(event["SUMMARY"]))
             url = getURL(event["SUMMARY"])
             ev_data = {"name": event["SUMMARY"], "url": url, "date": edate.strftime("%d %b")+": ", "ndays": (edate - today).days}
             events_to_write.append(ev_data)
