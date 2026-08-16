@@ -278,7 +278,7 @@ def read_supplied_token(args):
     return None
 
 
-def describe_refusal(exc, token, audience):
+def describe_refusal(exc, token, audience, verbose=False):
     """Explain a 401/403 from the API.
 
     The two are different problems and it is worth not confusing them:
@@ -298,7 +298,25 @@ def describe_refusal(exc, token, audience):
     lines.append(f'       token sent: sub="{claims.get("sub", "?")}" '
                  f'aud="{claims.get("aud", "?")}"')
 
-    if exc.code == 401:
+    if verbose and exc.headers:
+        # Which layer refused matters: mod_auth_openidc always challenges with
+        # WWW-Authenticate, so a 401 without one tends to come from the
+        # application behind Apache rather than from token validation.
+        lines.append('       response headers:')
+        lines += [f'         {k}: {v}' for k, v in exc.headers.items()]
+
+    if exc.code == 401 and not challenge:
+        lines += [
+            '       401 with no WWW-Authenticate header: Apache\'s OIDC module',
+            '       always challenges when it rejects a token, so this refusal',
+            '       probably comes from the application behind it, not from',
+            '       token validation. The token looks fine to the web server;',
+            '       the application does not recognise this identity. Compare',
+            '       with a personal token (--token-file) to confirm: if that',
+            '       works, the service account needs an identity or permission',
+            '       inside the application itself, not a different audience.',
+        ]
+    elif exc.code == 401:
         lines += [
             '       401 means the token was not accepted, which is usually the',
             f'       audience: we asked for "{audience}", but the API may validate',
@@ -329,7 +347,8 @@ def fetch(url, cfg, args):
         except urllib.error.HTTPError as exc:
             if exc.code in (401, 403):
                 raise SystemExit(
-                    describe_refusal(exc, supplied, claims.get('aud', '?')))
+                    describe_refusal(exc, supplied, claims.get('aud', '?'),
+                                     args.verbose))
             raise
 
     audience = audience_for(url, cfg, args.audience)
@@ -351,7 +370,8 @@ def fetch(url, cfg, args):
                                     verbose=args.verbose)
         except urllib.error.HTTPError as exc:
             if exc.code in (401, 403):
-                raise SystemExit(describe_refusal(exc, token, audience))
+                raise SystemExit(describe_refusal(exc, token, audience,
+                                                  args.verbose))
             last_error = exc
         except urllib.error.URLError as exc:
             last_error = exc
