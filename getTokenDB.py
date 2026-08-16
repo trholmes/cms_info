@@ -67,6 +67,10 @@ TOKEN_CACHE_FILE = '~/private/.cms_info_token_cache.json'
 # audience is the Client ID of the application that owns the API, not ours.
 # These can also be set in the "audiences" block of the config file.
 AUDIENCES = {
+    # Inferred from the login redirect that cmsfence.cern.ch issues, which
+    # names client_id=vocms0705. Unverified - if the API rejects the token,
+    # ask its owners for the Client ID they validate the "aud" claim against.
+    'cmsfence.cern.ch': 'vocms0705',
     # 'icms.cern.ch': 'fill-in-the-icms-api-client-id',
 }
 

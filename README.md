@@ -65,4 +65,8 @@ This requests a token and prints its claims (subject, audience, lifetime) withou
 
 Tokens are cached in `~/private/.cms_info_token_cache.json` (mode 600) and reused until they expire, so a run that fetches several URLs only asks for one token.
 
+### Note on cmsfence.cern.ch
+
+`https://cmsfence.cern.ch/incubator/api/...` is served by Apache `mod_auth_openidc` configured for browser login sessions (SSO client `vocms0705`), not as an OAuth2 resource server. Probing it shows that a request carrying `Authorization: Bearer <token>` is redirected to the interactive login page exactly like an anonymous one, with no `WWW-Authenticate` header — so bearer tokens are currently ignored there and `getDB.py` (cookie + Kerberos) is the way to read it. For it to accept tokens, its owners need to enable token validation on that path and grant `service-account-cms-info-scraper` a role.
+
 `-o` writes the file atomically and `--expect-json` refuses to save a response that is not valid JSON, so a failed authentication leaves the previous good .json in place instead of overwriting it with an SSO login page.
