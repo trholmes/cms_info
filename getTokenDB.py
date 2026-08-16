@@ -309,14 +309,22 @@ def describe_refusal(exc, token, audience, verbose=False):
 
     if exc.code == 401 and not challenge:
         lines += [
-            '       401 with no WWW-Authenticate header: Apache\'s OIDC module',
-            '       always challenges when it rejects a token, so this refusal',
-            '       probably comes from the application behind it, not from',
-            '       token validation. The token looks fine to the web server;',
-            '       the application does not recognise this identity. Compare',
-            '       with a personal token (--token-file) to confirm: if that',
-            '       works, the service account needs an identity or permission',
-            '       inside the application itself, not a different audience.',
+            '       401 with no WWW-Authenticate header. Two things can produce',
+            '       this and they need different fixes, so find out which:',
+            '',
+            '         curl -sS -o /dev/null -D - <this url> | head -3',
+            '',
+            '       An anonymous request that answers 302 (a redirect to the SSO',
+            '       login) means the web server handles tokens on a separate code',
+            '       path and rejected this one itself - so the audience or its',
+            '       token validation is the problem, whatever the audience was',
+            '       granted for. An anonymous request that also answers 401 points',
+            '       instead at the application behind the web server, which would',
+            '       mean it does not recognise this identity.',
+            '',
+            '       Either way the token itself is well formed, and either way a',
+            '       personal token (--token-file) tells you whether a human',
+            '       identity gets through where this service account does not.',
         ]
     elif exc.code == 401:
         lines += [
