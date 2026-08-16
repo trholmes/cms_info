@@ -27,7 +27,8 @@ Usage:
 Credentials are read from, in order of precedence:
     1. the command line (--client-id, --audience)
     2. the environment (CERN_CLIENT_ID, CERN_CLIENT_SECRET, CERN_API_AUDIENCE)
-    3. a JSON config file, by default ~/private/cms_info_sso.json, e.g.
+    3. a JSON config file, by default cms_info_sso.json next to this
+       script, e.g.
 
         {
             "client_id": "cms-info-scraper",
@@ -38,9 +39,10 @@ Credentials are read from, in order of precedence:
         }
 
     Create it with restrictive permissions:
-        touch ~/private/cms_info_sso.json
-        chmod 600 ~/private/cms_info_sso.json
-    Never commit the client secret to this repository.
+        touch cms_info_sso.json
+        chmod 600 cms_info_sso.json
+    That path is inside this git repository, so it is listed in .gitignore.
+    Never commit the client secret.
 """
 
 import argparse
