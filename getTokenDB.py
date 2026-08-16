@@ -60,8 +60,8 @@ AUTH_SERVER = 'auth.cern.ch'
 REALM = 'cern'
 
 DEFAULT_CLIENT_ID = 'cms-info-scraper'
-DEFAULT_CONFIG_FILE = '~/private/cms_info_sso.json'
-TOKEN_CACHE_FILE = '~/private/.cms_info_token_cache.json'
+DEFAULT_CONFIG_FILE = 'cms_info_sso.json'
+TOKEN_CACHE_FILE = '.cms_info_token_cache.json'
 
 # Which target application (audience) to ask a token for, per host. The
 # audience is the Client ID of the application that owns the API, not ours.
