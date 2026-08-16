@@ -53,7 +53,7 @@ That file sits in the working directory, which is this git repository, so both i
 ### Checking that it works
 
 ```bash
-./getTokenDB.py --check --audience the-target-api-client-id
+python3 getTokenDB.py --check --audience the-target-api-client-id
 ```
 
 This requests a token and prints its claims (subject, audience, lifetime) without calling any API, which separates "my credentials are wrong" from "the API will not accept me".
@@ -61,7 +61,7 @@ This requests a token and prints its claims (subject, audience, lifetime) withou
 ### Fetching data
 
 ```bash
-./getTokenDB.py 'https://icms.cern.ch/tools-api/restplus/org_chart/tenures?exclude_past=true' \
+python3 getTokenDB.py 'https://icms.cern.ch/tools-api/restplus/org_chart/tenures?exclude_past=true' \
     -o tenures_raw.json --expect-json
 ```
 
@@ -73,7 +73,7 @@ Tokens are cached in `.cms_info_token_cache.json` (mode 600) and reused until th
 
 ```bash
 auth-get-user-token -c <a-public-client> -a <target-audience> -o /tmp/token.txt
-./getTokenDB.py 'https://...' --token-file /tmp/token.txt -v
+python3 getTokenDB.py 'https://...' --token-file /tmp/token.txt -v
 ```
 
 That flow needs a human to log in through a browser and the token lasts about 20 minutes, so it is a diagnostic rather than something for the cron job. If a URL works with a personal token but not with the service account, the endpoint does accept tokens and the problem is that `service-account-cms-info-scraper` lacks permissions.

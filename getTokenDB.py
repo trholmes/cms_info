@@ -21,8 +21,8 @@ id>`), not a person, so the target application must have granted that account
 access - via a role mapped to a group that our client subscribes to.
 
 Usage:
-    ./getTokenDB.py <url> [-o outfile] [--expect-json] [--audience <client-id>]
-    ./getTokenDB.py --check --audience <client-id>   # test the credentials only
+    python3 getTokenDB.py <url> [-o outfile] [--expect-json] [--audience <client-id>]
+    python3 getTokenDB.py --check --audience <client-id>   # test the credentials only
 
 Credentials are read from, in order of precedence:
     1. the command line (--client-id, --audience)
