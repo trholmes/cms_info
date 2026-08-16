@@ -78,6 +78,8 @@ That flow needs a human to log in through a browser and the token lasts about 20
 
 ### Note on cmsfence.cern.ch
 
-`https://cmsfence.cern.ch/incubator/api/...` is served by Apache `mod_auth_openidc` configured for browser login sessions (SSO client `vocms0705`), not as an OAuth2 resource server. Probing it shows that a request carrying `Authorization: Bearer <token>` is redirected to the interactive login page exactly like an anonymous one, with no `WWW-Authenticate` header — so bearer tokens are currently ignored there and `getDB.py` (cookie + Kerberos) is the way to read it. For it to accept tokens, its owners need to enable token validation on that path and grant `service-account-cms-info-scraper` a role.
+`https://cmsfence.cern.ch/incubator/api/...` is served by Apache `mod_auth_openidc`. From inside the CERN network it does read bearer tokens: a request with a token gets a `401` rather than the redirect to the interactive login that an anonymous one gets. (Probing from outside CERN is misleading, as everything is redirected to the login page there regardless.)
 
-`-o` writes the file atomically and `--expect-json` refuses to save a response that is not valid JSON, so a failed authentication leaves the previous good .json in place instead of overwriting it with an SSO login page.
+A `401` means the token was not accepted, which points at the audience rather than at permissions - `vocms0705` is the client the host uses for browser logins, and the API may validate a different Client ID. A `403` would be the permissions case.
+
+Remember that the token identifies `service-account-cms-info-scraper`, not the person running the script. Being logged in on lxplus, or having access to the site in a browser, grants the token nothing. To read the endpoint with your own rights instead, use `getDB.py` (Kerberos cookie) or a personal token as described above.

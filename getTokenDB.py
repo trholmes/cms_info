@@ -274,6 +274,44 @@ def read_supplied_token(args):
     return None
 
 
+def describe_refusal(exc, token, audience):
+    """Explain a 401/403 from the API.
+
+    The two are different problems and it is worth not confusing them:
+      401 the token was not accepted at all - wrong audience, or the endpoint
+          validates against a different issuer/key. Nothing to do with roles.
+      403 the token was accepted, but this identity may not read this resource,
+          which is the case that needs a role on the target application.
+    Apache's mod_auth_openidc puts the precise reason in WWW-Authenticate, so
+    show that first; its HTML body says nothing useful.
+    """
+    claims = decode_claims(token)
+    challenge = exc.headers.get('WWW-Authenticate') if exc.headers else None
+
+    lines = [f'ERROR: the API refused the token ({exc.code} {exc.reason}).']
+    if challenge:
+        lines.append(f'       server said: {challenge}')
+    lines.append(f'       token sent: sub="{claims.get("sub", "?")}" '
+                 f'aud="{claims.get("aud", "?")}"')
+
+    if exc.code == 401:
+        lines += [
+            '       401 means the token was not accepted, which is usually the',
+            f'       audience: we asked for "{audience}", but the API may validate',
+            '       a different Client ID. Ask its owners which "aud" they expect.',
+            '       Note this is not about your own CERN login: the token',
+            f'       identifies "{claims.get("sub", "?")}", not you, so being',
+            '       logged in on lxplus grants it nothing.',
+        ]
+    else:
+        lines += [
+            '       403 means the token was valid but this identity is not',
+            '       allowed to read this. The target application needs to grant',
+            f'       "{claims.get("sub", "?")}" a role.',
+        ]
+    return '\n'.join(lines)
+
+
 def fetch(url, cfg, args):
     """Fetch `url` with a bearer token, retrying transient failures."""
     supplied = read_supplied_token(args)
@@ -281,8 +319,14 @@ def fetch(url, cfg, args):
         claims = decode_claims(supplied)
         log(f'using supplied token for "{claims.get("sub", "?")}" '
             f'(audience "{claims.get("aud", "?")}")', args.verbose)
-        return fetch_with_token(url, supplied, verify=not args.insecure,
-                                verbose=args.verbose)
+        try:
+            return fetch_with_token(url, supplied, verify=not args.insecure,
+                                    verbose=args.verbose)
+        except urllib.error.HTTPError as exc:
+            if exc.code in (401, 403):
+                raise SystemExit(
+                    describe_refusal(exc, supplied, claims.get('aud', '?')))
+            raise
 
     audience = audience_for(url, cfg, args.audience)
     if not audience:
@@ -296,19 +340,14 @@ def fetch(url, cfg, args):
         try:
             # Only trust the cache on the first attempt; if the request failed
             # the cached token may be the reason.
-            token = get_token(cfg, audience, use_cache=(attempt == 1),
+            token = get_token(cfg, audience,
+                              use_cache=(attempt == 1 and not args.no_cache),
                               verbose=args.verbose)
             return fetch_with_token(url, token, verify=not args.insecure,
                                     verbose=args.verbose)
         except urllib.error.HTTPError as exc:
             if exc.code in (401, 403):
-                body = exc.read().decode('utf-8', 'replace')[:300]
-                raise SystemExit(
-                    f'ERROR: the API refused the token ({exc.code} {exc.reason}): '
-                    f'{body}\n       The token itself was issued, so this is a '
-                    'permissions problem: the service account '
-                    f'"service-account-{cfg["client_id"]}" needs access to the '
-                    'target application.')
+                raise SystemExit(describe_refusal(exc, token, audience))
             last_error = exc
         except urllib.error.URLError as exc:
             last_error = exc
@@ -386,6 +425,8 @@ def main(argv=None):
     parser.add_argument('--token-file',
                         help='read the token from this file, e.g. the output '
                              'of "auth-get-user-token -o token.txt"')
+    parser.add_argument('--no-cache', action='store_true',
+                        help='ignore any cached token and request a fresh one')
     parser.add_argument('--check', action='store_true',
                         help='request a token, print its claims and exit')
     parser.add_argument('--insecure', action='store_true',
