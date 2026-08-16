@@ -309,22 +309,15 @@ def describe_refusal(exc, token, audience, verbose=False):
 
     if exc.code == 401 and not challenge:
         lines += [
-            '       401 with no WWW-Authenticate header. Two things can produce',
-            '       this and they need different fixes, so find out which:',
-            '',
-            '         curl -sS -o /dev/null -D - <this url> | head -3',
-            '',
-            '       An anonymous request that answers 302 (a redirect to the SSO',
-            '       login) means the web server handles tokens on a separate code',
-            '       path and rejected this one itself - so the audience or its',
-            '       token validation is the problem, whatever the audience was',
-            '       granted for. An anonymous request that also answers 401 points',
-            '       instead at the application behind the web server, which would',
-            '       mean it does not recognise this identity.',
-            '',
-            '       Either way the token itself is well formed, and either way a',
-            '       personal token (--token-file) tells you whether a human',
-            '       identity gets through where this service account does not.',
+            '       401 with no WWW-Authenticate header. A properly configured',
+            '       OAuth resource server challenges when it rejects a token, so',
+            '       its absence suggests this endpoint does not accept bearer',
+            '       tokens at all: some web server setups answer 401 rather than',
+            '       redirecting once they see an Authorization header, which',
+            '       looks like a rejected token but is not one. If different',
+            '       audiences all produce this same reply, that is the likely',
+            '       reading, and no audience will work until the endpoint is',
+            '       configured to accept tokens. Its owners have to do that.',
         ]
     elif exc.code == 401:
         lines += [

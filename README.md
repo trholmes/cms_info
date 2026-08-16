@@ -88,28 +88,22 @@ When the API refuses a token, read the status code together with the `WWW-Authen
 
 * `401` **with** a challenge header - token validation failed, usually a wrong audience. Nothing to do with roles.
 * `403` - the token was accepted but this identity may not read the resource, so the target application needs to grant `service-account-cms-info-scraper` a role.
-* `401` **without** a challenge header - ambiguous, see below.
+* `401` **without** a challenge header - the endpoint probably does not accept bearer tokens at all, see below.
 
-The last of these is what `cmsfence.cern.ch` currently returns for a token whose `aud` is `glance-api-access-client` and whose `resource_access` shows a role on that same client. Two different things produce it, so check which before acting:
+### What cmsfence.cern.ch currently does
 
-```bash
-curl -sS -o /dev/null -D - https://cmsfence.cern.ch/incubator/api/job_openings | head -3
-```
+Tested from lxplus, `https://cmsfence.cern.ch/incubator/api/job_openings` answers:
 
-* Anonymous request answers **302** (redirected to the SSO login): the web server handles tokens on a separate code path and refused ours there, so its token validation or the audience it expects is the problem - even though the audience is the application we were granted access to. Its owners have to say which `aud` that vhost validates.
-* Anonymous request also answers **401**: the refusal comes from the application behind the web server, which does not recognise `service-account-cms-info-scraper`. Glance resolves callers to people, and a service account is not one, so it would need standing inside Glance itself.
+| request | response |
+| --- | --- |
+| anonymous | `302` to the CERN SSO login |
+| `Authorization: Bearer <token>` | `401`, Apache's own error page, no `WWW-Authenticate` |
 
-The response body is Apache's own error page in both cases, which is why it says nothing useful.
+Both `glance-api-access-client` and `vocms0705` give the same `401`, and the token is well formed either way: its `aud` matches what was asked for, and `resource_access` shows a role on `glance-api-access-client`, so the client credentials and the grant are in order.
 
-Whichever it is, the quickest way to see whether a *human* identity gets through is `getDB.py`, which authenticates as whoever runs it:
+A resource server that rejects a token says so in a `WWW-Authenticate` header. Nothing here does. The likely reading is that this vhost is a browser-session gateway that answers `401` rather than redirecting once it sees an `Authorization` header - which looks like a rejected token but is not one. If so, no audience will work, and the fix belongs to whoever runs the endpoint: it has to be configured as an OAuth2 resource server, per [Securing APIs](https://auth.docs.cern.ch/user-documentation/oidc/securing-apis/).
 
-```bash
-python3 getDB.py 'https://cmsfence.cern.ch/incubator/api/job_openings'
-```
-
-If that returns the data, the endpoint and the URL are fine and the gap is specific to the service account.
-
-Remember that the token identifies `service-account-cms-info-scraper`, not the person running the script. Being logged in on lxplus, or having access to the site in a browser, grants the token nothing.
+`getDB.py` does not work against this endpoint either, so until then there is no way in from a script.
 
 ## Keeping the client secret safe
 
