@@ -78,17 +78,19 @@ That flow needs a human to log in through a browser and the token lasts about 20
 
 ### Note on cmsfence.cern.ch
 
-`https://cmsfence.cern.ch/incubator/api/...` is served by Apache `mod_auth_openidc`. From inside the CERN network it does read bearer tokens: a request with a token gets a `401` rather than the redirect to the interactive login that an anonymous one gets. (Probing from outside CERN is misleading, as everything is redirected to the login page there regardless.)
+`https://cmsfence.cern.ch/incubator/api/...` is served by Apache `mod_auth_openidc`, and from inside the CERN network it does read bearer tokens: a request carrying one gets a `401` where an anonymous request gets redirected to the interactive login. (Probing from outside CERN is misleading - everything is redirected there regardless.)
 
-A `401` means the token was not accepted, which points at the audience rather than at permissions; a `403` would be the permissions case.
+The audience is `glance-api-access-client`, which is the application `cms-info-scraper` was granted access to. That grant is what makes it the right value: CERN permissions are given per target application, so the application we were let into is the one we can usefully ask tokens for. Reading a client id off the browser login redirect, as an earlier version of this file did, finds the client the *site* uses to log people in, which is a different setting and was refused with a `401`.
 
-The audience currently configured for that host, `vocms0705`, is a guess and the `401` suggests it is wrong. It was read off the redirect an unauthenticated request gets:
+When the API refuses a token, the two codes mean different things:
 
-```bash
-curl -sS -D - -o /dev/null https://cmsfence.cern.ch/incubator/api/job_openings | grep -i ^location
-# ...openid-connect/auth?response_type=code&client_id=vocms0705&...
-```
+* `401` - the token was not accepted at all. Usually the audience is wrong. Nothing to do with roles.
+* `403` - the token was accepted but this identity may not read the resource. This is the case where the target application needs to grant `service-account-cms-info-scraper` a role.
 
-That is the client the host logs *browsers* in as, which is a separate setting from the audience it validates bearer tokens against. The same trick gives a first candidate for any CERN URL, but only the owners of an API can confirm the `aud` it expects.
+`getTokenDB.py` prints the `WWW-Authenticate` header on both, which is where `mod_auth_openidc` states the actual reason; its HTML body says nothing useful.
 
-Remember that the token identifies `service-account-cms-info-scraper`, not the person running the script. Being logged in on lxplus, or having access to the site in a browser, grants the token nothing. To read the endpoint with your own rights instead, use `getDB.py` (Kerberos cookie) or a personal token as described above.
+Remember that the token identifies `service-account-cms-info-scraper`, not the person running the script. Being logged in on lxplus, or having access to the site in a browser, grants the token nothing. To read an endpoint with your own rights instead, use `getDB.py` (Kerberos cookie) or a personal token as described above.
+
+## Keeping the client secret safe
+
+The secret is the only thing standing between anyone and a token for our service account, so it lives in `~/private/cms_info_sso.json` with mode 600 and never in this repository. If it is ever pasted into a terminal that is shared or logged, into a ticket, or into a chat, regenerate it in the Application Portal and update that file - a leaked secret cannot be un-leaked, and rotating it is quick.

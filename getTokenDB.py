@@ -67,18 +67,15 @@ TOKEN_CACHE_FILE = '~/private/.cms_info_token_cache.json'
 # audience is the Client ID of the application that owns the API, not ours.
 # These can also be set in the "audiences" block of the config file.
 AUDIENCES = {
-    # A GUESS, and quite possibly wrong. Read off the login redirect that
-    # cmsfence.cern.ch issues for an unauthenticated request, which names
-    # client_id=vocms0705:
-    #   curl -sS -D - -o /dev/null https://cmsfence.cern.ch/incubator/api/... \
-    #       | grep -i ^location
-    # That is the client it logs *browsers* in as; the audience it validates
-    # bearer tokens against is a separate setting and need not be the same.
-    # Asking for it did produce a token, but the API answered 401, so this is
-    # likely not the value it expects. Only its owners can confirm the right
-    # one - the WWW-Authenticate header on the 401 may also name the reason.
-    'cmsfence.cern.ch': 'vocms0705',
-    # 'icms.cern.ch': 'fill-in-the-icms-api-client-id',
+    # This is the application cms-info-scraper was actually granted access to,
+    # which is what makes it the audience: permissions are granted per target
+    # application, so the one we were let into is the one we can ask tokens
+    # for. (An earlier guess of vocms0705, read off the browser login redirect
+    # that cmsfence.cern.ch issues, was never granted to us and got a 401.)
+    'cmsfence.cern.ch': 'glance-api-access-client',
+    # The iCMS tools API is Glance-backed too, so the same audience may well
+    # work for it. Untested - uncomment and try once cmsfence is confirmed.
+    # 'icms.cern.ch': 'glance-api-access-client',
 }
 
 # Tokens are short lived; renew this many seconds before the stated expiry.
