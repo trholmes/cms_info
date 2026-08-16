@@ -259,8 +259,31 @@ def fetch_with_token(url, token, verify=True, verbose=False):
         return response.read().decode('utf-8', 'replace')
 
 
+def read_supplied_token(args):
+    """A token obtained elsewhere, e.g. by `auth-get-user-token -o token.txt`.
+
+    Useful for testing: that tool uses the device grant, so the token belongs
+    to a real person rather than to our service account. If a URL works with
+    one and not the other, the problem is permissions, not the endpoint.
+    """
+    if args.token:
+        return args.token.strip()
+    if args.token_file:
+        with open(os.path.expanduser(args.token_file)) as handle:
+            return handle.read().strip()
+    return None
+
+
 def fetch(url, cfg, args):
     """Fetch `url` with a bearer token, retrying transient failures."""
+    supplied = read_supplied_token(args)
+    if supplied:
+        claims = decode_claims(supplied)
+        log(f'using supplied token for "{claims.get("sub", "?")}" '
+            f'(audience "{claims.get("aud", "?")}")', args.verbose)
+        return fetch_with_token(url, supplied, verify=not args.insecure,
+                                verbose=args.verbose)
+
     audience = audience_for(url, cfg, args.audience)
     if not audience:
         raise SystemExit(
@@ -358,6 +381,11 @@ def main(argv=None):
                         help=f'credentials file (default: {DEFAULT_CONFIG_FILE})')
     parser.add_argument('--expect-json', action='store_true',
                         help='fail if the response does not parse as JSON')
+    parser.add_argument('--token',
+                        help='use this token instead of requesting one')
+    parser.add_argument('--token-file',
+                        help='read the token from this file, e.g. the output '
+                             'of "auth-get-user-token -o token.txt"')
     parser.add_argument('--check', action='store_true',
                         help='request a token, print its claims and exit')
     parser.add_argument('--insecure', action='store_true',

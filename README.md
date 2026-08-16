@@ -65,6 +65,17 @@ This requests a token and prints its claims (subject, audience, lifetime) withou
 
 Tokens are cached in `~/private/.cms_info_token_cache.json` (mode 600) and reused until they expire, so a run that fetches several URLs only asks for one token.
 
+### Testing with a personal token instead
+
+`getTokenDB.py` authenticates as a service account. To check whether an endpoint accepts bearer tokens *at all*, it can be handy to try with a token belonging to a real person, obtained through the device grant with the [CERN command line tools](https://auth.docs.cern.ch/applications/command-line-tools/):
+
+```bash
+auth-get-user-token -c <a-public-client> -a <target-audience> -o /tmp/token.txt
+./getTokenDB.py 'https://...' --token-file /tmp/token.txt -v
+```
+
+That flow needs a human to log in through a browser and the token lasts about 20 minutes, so it is a diagnostic rather than something for the cron job. If a URL works with a personal token but not with the service account, the endpoint does accept tokens and the problem is that `service-account-cms-info-scraper` lacks permissions.
+
 ### Note on cmsfence.cern.ch
 
 `https://cmsfence.cern.ch/incubator/api/...` is served by Apache `mod_auth_openidc` configured for browser login sessions (SSO client `vocms0705`), not as an OAuth2 resource server. Probing it shows that a request carrying `Authorization: Bearer <token>` is redirected to the interactive login page exactly like an anonymous one, with no `WWW-Authenticate` header — so bearer tokens are currently ignored there and `getDB.py` (cookie + Kerberos) is the way to read it. For it to accept tokens, its owners need to enable token validation on that path and grant `service-account-cms-info-scraper` a role.
