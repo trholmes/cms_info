@@ -67,6 +67,8 @@ python3 getTokenDB.py 'https://icms.cern.ch/tools-api/restplus/org_chart/tenures
 
 Tokens are cached in `.cms_info_token_cache.json` (mode 600) and reused until they expire, so a run that fetches several URLs only asks for one token.
 
+Claims are fixed when a token is issued, so a permission that was just granted - an e-group membership, a new role - does not appear in a token obtained before it. After any access change, pass `--no-cache` once to get a fresh one. Group changes can also take a few minutes to propagate.
+
 ### Testing with a personal token instead
 
 `getTokenDB.py` authenticates as a service account. To check whether an endpoint accepts bearer tokens *at all*, it can be handy to try with a token belonging to a real person, obtained through the device grant with the [CERN command line tools](https://auth.docs.cern.ch/applications/command-line-tools/):
