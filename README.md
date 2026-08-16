@@ -80,6 +80,15 @@ That flow needs a human to log in through a browser and the token lasts about 20
 
 `https://cmsfence.cern.ch/incubator/api/...` is served by Apache `mod_auth_openidc`. From inside the CERN network it does read bearer tokens: a request with a token gets a `401` rather than the redirect to the interactive login that an anonymous one gets. (Probing from outside CERN is misleading, as everything is redirected to the login page there regardless.)
 
-A `401` means the token was not accepted, which points at the audience rather than at permissions - `vocms0705` is the client the host uses for browser logins, and the API may validate a different Client ID. A `403` would be the permissions case.
+A `401` means the token was not accepted, which points at the audience rather than at permissions; a `403` would be the permissions case.
+
+The audience currently configured for that host, `vocms0705`, is a guess and the `401` suggests it is wrong. It was read off the redirect an unauthenticated request gets:
+
+```bash
+curl -sS -D - -o /dev/null https://cmsfence.cern.ch/incubator/api/job_openings | grep -i ^location
+# ...openid-connect/auth?response_type=code&client_id=vocms0705&...
+```
+
+That is the client the host logs *browsers* in as, which is a separate setting from the audience it validates bearer tokens against. The same trick gives a first candidate for any CERN URL, but only the owners of an API can confirm the `aud` it expects.
 
 Remember that the token identifies `service-account-cms-info-scraper`, not the person running the script. Being logged in on lxplus, or having access to the site in a browser, grants the token nothing. To read the endpoint with your own rights instead, use `getDB.py` (Kerberos cookie) or a personal token as described above.
