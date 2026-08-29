@@ -552,8 +552,18 @@ def report_token(cfg, token, audience, args):
                   'This does not mean the token is invalid.')
             print('\n  Introspecting a token addressed to us instead, as a '
                   'control:')
-            control = introspect(cfg, get_token(cfg, cfg['client_id'],
-                                                use_cache=False))
+            control_token = get_token(cfg, cfg['client_id'], use_cache=False)
+            control_claims = decode_claims(control_token)
+            control_aud = control_claims.get('aud')
+            print(f'    the control token\'s aud is {json.dumps(control_aud)} '
+                  f'(we asked for "{cfg["client_id"]}")')
+            if control_aud != cfg['client_id'] and cfg['client_id'] not in (
+                    control_aud if isinstance(control_aud, list) else []):
+                print('    The SSO did not address the control token to us '
+                      'either, so the\n    audience rule still applies and '
+                      'this control cannot settle it.\n    Introspection here '
+                      'cannot be tested from the calling side.')
+            control = introspect(cfg, control_token)
             if control.get('active'):
                 print('    active=True - introspection works here, so the '
                       'result above is\n    only the audience check. Whether '

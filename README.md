@@ -118,7 +118,9 @@ Read the status code together with the `WWW-Authenticate` header, which is where
   Read the result carefully, because introspection has an audience rule of its own: **the SSO only introspects a token for a client named in that token's `aud`**. Asking as `cms-info-scraper` about a token addressed to `glance-api-access-client` therefore answers `active: false` no matter how good the token is, and proves nothing on its own. `--introspect` handles this by then introspecting a token addressed to us as a control:
 
   * control `active=true` - introspection works, and the first `false` was only the audience rule. Whether Glance's own introspection succeeds can only be seen from their side.
-  * control `active=false` - even a token addressed to us introspects as inactive, so tokens from the `api-access` endpoint may not be introspectable at all. That would explain an API which validates by introspection refusing them, and is worth raising with the SSO team as well as with Glance.
+  * control `active=false` - even a token addressed to us introspects as inactive, so tokens from the `api-access` endpoint may not be introspectable at all. Check the reported audience of the control token first: if the SSO did not address it to us either, the audience rule still applies and the control settles nothing.
+
+  A genuine `active=false` on a token addressed to us matters, because CERN documents signature verification, not introspection, as the way to accept these tokens: [Securing APIs](https://auth.docs.cern.ch/user-documentation/oidc/securing-apis/) says to verify them against `https://auth.cern.ch/auth/realms/cern/protocol/openid-connect/certs` and to check the `aud` claim. An API validating them by introspection instead is not following that, which would explain the refusal no matter what the caller does.
 
   `--check` requests a new token by default, which is what proves the client id and secret still work. That is not the token an API has just refused, so `--cached-token` (or `--token-file`) examines a specific one instead.
 
