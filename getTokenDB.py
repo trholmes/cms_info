@@ -25,6 +25,9 @@ Usage:
     python3 getTokenDB.py <url> -d 'queryString="startDate" <= "2026-12-31"'
     python3 getTokenDB.py --check --audience <client-id>   # test the credentials only
 
+    TOKEN=$(python3 getTokenDB.py --print-token --audience <client-id>)
+    curl -H "Authorization: Bearer $TOKEN" ...                # hand-testing
+
 Credentials are read from, in order of precedence:
     1. the command line (--client-id, --audience)
     2. the environment (CERN_CLIENT_ID, CERN_CLIENT_SECRET, CERN_API_AUDIENCE)
@@ -490,6 +493,19 @@ def write_output(body, outfile, expect_json):
     os.replace(tmp, outfile)
 
 
+def resolve_audience(cfg, args):
+    """The audience for a command that names no URL to infer it from."""
+    audience = args.audience or os.environ.get('CERN_API_AUDIENCE')
+    if audience:
+        return audience
+    audiences = sorted(set(cfg['audiences'].values()))
+    if len(audiences) != 1:
+        raise SystemExit(
+            'ERROR: this needs an audience: pass --audience <client-id> '
+            f'(configured audiences: {audiences or "none"}).')
+    return audiences[0]
+
+
 def check_credentials(cfg, args):
     """Print a token's claims, without calling any API.
 
@@ -504,14 +520,7 @@ def check_credentials(cfg, args):
         print(f'examining the supplied token (audience "{claims.get("aud")}")')
         return report_token(cfg, supplied, claims.get('aud'), args)
 
-    audience = args.audience or os.environ.get('CERN_API_AUDIENCE')
-    if not audience:
-        audiences = sorted(set(cfg['audiences'].values()))
-        if len(audiences) != 1:
-            raise SystemExit(
-                'ERROR: --check needs an audience: pass --audience <client-id> '
-                f'(configured audiences: {audiences or "none"}).')
-        audience = audiences[0]
+    audience = resolve_audience(cfg, args)
 
     token = get_token(cfg, audience, use_cache=False, verbose=True)
     print(f'OK: got a token for audience "{audience}"')
@@ -605,6 +614,9 @@ def main(argv=None):
                         help='ignore any cached token and request a fresh one')
     parser.add_argument('--check', action='store_true',
                         help='request a token, print its claims and exit')
+    parser.add_argument('--print-token', action='store_true',
+                        help='print just the access token, to capture into a '
+                             'shell variable for use with curl')
     parser.add_argument('--cached-token', action='store_true',
                         help='use the token already in the cache for this '
                              'audience, rather than requesting a new one')
@@ -619,6 +631,14 @@ def main(argv=None):
     cfg = load_config(args.config)
     if args.client_id:
         cfg['client_id'] = args.client_id
+
+    if args.print_token:
+        # Only the token on stdout, so it can be captured into a variable.
+        token = read_supplied_token(args) or get_token(
+            cfg, resolve_audience(cfg, args),
+            use_cache=not args.no_cache, verbose=args.verbose)
+        print(token)
+        return 0
 
     if args.check:
         return check_credentials(cfg, args)

@@ -69,6 +69,21 @@ Tokens are cached in `.cms_info_token_cache.json` (mode 600) and reused until th
 
 Claims are fixed when a token is issued, so a permission that was just granted - an e-group membership, a new role - does not appear in a token obtained before it. After any access change, pass `--no-cache` once to get a fresh one. Group changes can also take a few minutes to propagate.
 
+### Hand-testing with curl
+
+To try a call by hand, capture the token into a shell variable rather than pasting it:
+
+```bash
+TOKEN=$(python3 getTokenDB.py --print-token --audience glance-api-access-client)
+
+curl -G 'https://cmsfence.cern.ch/membership/api/appointments/search' \
+    -H "Authorization: Bearer $TOKEN" \
+    -H 'Accept: application/json' \
+    --data-urlencode 'queryString="startDate" <= "2026-12-31" AND "endDate" >= "2026-01-01"'
+```
+
+`--print-token` writes only the token to stdout, so `$( )` captures it cleanly. Use double quotes around `Bearer $TOKEN` or the shell will not expand it. A token is a credential for its 20 minutes: keep it in the variable rather than pasting it into tickets or mail.
+
 ### Testing with a personal token instead
 
 `getTokenDB.py` authenticates as a service account. To check whether an endpoint accepts bearer tokens *at all*, it can be handy to try with a token belonging to a real person, obtained through the device grant with the [CERN command line tools](https://auth.docs.cern.ch/applications/command-line-tools/):
