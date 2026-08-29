@@ -86,7 +86,7 @@ The iCMS `tools-api` endpoints are being replaced by Glance APIs on `cmsfence.ce
 
 | old iCMS endpoint | replacement | state |
 | --- | --- | --- |
-| `tools-api/restplus/org_chart/tenures` | `cmsfence.cern.ch/membership/api/appointments/search` | available |
+| `tools-api/restplus/org_chart/tenures` | `cmsfence.cern.ch/membership/api/appointments/search` | reachable, but refuses our tokens - it validates by introspection, see below |
 | `tools-api/restplus/org_chart/job_openings` | `cmsfence.cern.ch/incubator/api/job_openings` | not yet - Glance still has configuration and development work to finish |
 | `tools-api/restplus/cadi/xeb_report` | not yet announced | - |
 
@@ -109,20 +109,17 @@ Read the status code together with the `WWW-Authenticate` header, which is where
 * `401` **with** a challenge header - token validation failed, usually a wrong audience.
 * `403` - the token was accepted but this identity may not read the resource, so it needs a role.
 * `401` with a **JSON body** - the Glance application itself turned the token down, and the body says why. `X-Powered-By: PHP`, `Content-Type: application/json` and `Vary: Authorization` mark this case: the endpoint reads tokens fine, so the complaint is about this particular token.
-* `"Authentication token introspection failed"` in that body - Glance validates tokens by introspecting them against the SSO rather than by checking their signature, and that call came back negative.
+* `"Authentication token introspection failed"` in that body - Glance validates tokens by introspecting them against the SSO rather than by checking their signature, and that call comes back negative. This is the membership API's current state, and the cause has been pinned down:
 
   ```bash
   python3 getTokenDB.py --check --audience glance-api-access-client --introspect
   ```
 
-  Read the result carefully, because introspection has an audience rule of its own: **the SSO only introspects a token for a client named in that token's `aud`**. Asking as `cms-info-scraper` about a token addressed to `glance-api-access-client` therefore answers `active: false` no matter how good the token is, and proves nothing on its own. `--introspect` handles this by then introspecting a token addressed to us as a control:
+  **CERN's api-access tokens do not introspect as active.** A token freshly issued by `https://auth.cern.ch/auth/realms/cern/api-access/token`, with 20 minutes of validity left and addressed to the very client asking about it, comes back `{"active": false}`. The introspection request itself returns HTTP 200 rather than `401 invalid_client`, so the client is authenticated at that endpoint and the answer is genuinely about the token. Those tokens carry `refresh_expires_in: 0` and no lasting session for an introspection lookup to find.
 
-  * control `active=true` - introspection works, and the first `false` was only the audience rule. Whether Glance's own introspection succeeds can only be seen from their side.
-  * control `active=false` - even a token addressed to us introspects as inactive, so tokens from the `api-access` endpoint may not be introspectable at all. Check the reported audience of the control token first: if the SSO did not address it to us either, the audience rule still applies and the control settles nothing.
+  Watch for a confound when reading this: the SSO only introspects a token for a client named in that token's `aud`, and answers `active: false` to anybody else, so asking as `cms-info-scraper` about a token for `glance-api-access-client` is false whatever the token's state. `--introspect` handles that by also introspecting a token addressed to us, and reports which audience that control actually received.
 
-  A genuine `active=false` on a token addressed to us matters, because CERN documents signature verification, not introspection, as the way to accept these tokens: [Securing APIs](https://auth.docs.cern.ch/user-documentation/oidc/securing-apis/) says to verify them against `https://auth.cern.ch/auth/realms/cern/protocol/openid-connect/certs` and to check the `aud` claim. An API validating them by introspection instead is not following that, which would explain the refusal no matter what the caller does.
-
-  `--check` requests a new token by default, which is what proves the client id and secret still work. That is not the token an API has just refused, so `--cached-token` (or `--token-file`) examines a specific one instead.
+  The consequence is that an API validating these tokens by introspection can never accept them, however the caller behaves. CERN's [Securing APIs](https://auth.docs.cern.ch/user-documentation/oidc/securing-apis/) guide accordingly tells API owners to verify the signature against `https://auth.cern.ch/auth/realms/cern/protocol/openid-connect/certs` and check the `aud` claim, and does not mention introspection. Resolving this needs the API to validate by signature, or a different way of obtaining a token that is introspectable.
 
 ## Keeping the client secret safe
 
