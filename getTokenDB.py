@@ -309,6 +309,15 @@ def fetch_with_token(url, token, verify=True, verbose=False):
         return response.read().decode('utf-8', 'replace')
 
 
+def cached_token_for(audience, cache_file=TOKEN_CACHE_FILE):
+    """The cached token for an audience, expired or not, for diagnosis."""
+    try:
+        with open(os.path.expanduser(cache_file)) as handle:
+            return json.load(handle).get(audience, {}).get('access_token')
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
 def read_supplied_token(args):
     """A token obtained elsewhere, e.g. by `auth-get-user-token -o token.txt`.
 
@@ -321,6 +330,14 @@ def read_supplied_token(args):
     if args.token_file:
         with open(os.path.expanduser(args.token_file)) as handle:
             return handle.read().strip()
+    if getattr(args, 'cached_token', False):
+        audience = args.audience or os.environ.get('CERN_API_AUDIENCE')
+        if not audience:
+            raise SystemExit('ERROR: --cached-token needs --audience.')
+        token = cached_token_for(audience)
+        if not token:
+            raise SystemExit(f'ERROR: no cached token for "{audience}".')
+        return token
     return None
 
 
@@ -474,7 +491,19 @@ def write_output(body, outfile, expect_json):
 
 
 def check_credentials(cfg, args):
-    """Request a token and print its claims, without calling any API."""
+    """Print a token's claims, without calling any API.
+
+    Requests a fresh token by default, which is what proves the client id and
+    secret still work. Pass --token/--token-file to examine a specific token
+    instead - for instance the cached one that an API has just rejected, so
+    that what gets introspected is exactly what the API saw.
+    """
+    supplied = read_supplied_token(args)
+    if supplied:
+        claims = decode_claims(supplied)
+        print(f'examining the supplied token (audience "{claims.get("aud")}")')
+        return report_token(cfg, supplied, claims.get('aud'), args)
+
     audience = args.audience or os.environ.get('CERN_API_AUDIENCE')
     if not audience:
         audiences = sorted(set(cfg['audiences'].values()))
@@ -485,8 +514,13 @@ def check_credentials(cfg, args):
         audience = audiences[0]
 
     token = get_token(cfg, audience, use_cache=False, verbose=True)
-    claims = decode_claims(token)
     print(f'OK: got a token for audience "{audience}"')
+    return report_token(cfg, token, audience, args)
+
+
+def report_token(cfg, token, audience, args):
+    """Print a token's claims, and optionally what the SSO makes of it."""
+    claims = decode_claims(token)
     print(f'  subject:   {claims.get("sub")}')
     print(f'  audience:  {claims.get("aud")}')
     print(f'  issuer:    {claims.get("iss")}')
@@ -539,6 +573,9 @@ def main(argv=None):
                         help='ignore any cached token and request a fresh one')
     parser.add_argument('--check', action='store_true',
                         help='request a token, print its claims and exit')
+    parser.add_argument('--cached-token', action='store_true',
+                        help='use the token already in the cache for this '
+                             'audience, rather than requesting a new one')
     parser.add_argument('--introspect', action='store_true',
                         help='with --check, also ask the SSO whether the '
                              'token is active (RFC 7662)')

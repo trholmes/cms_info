@@ -112,10 +112,16 @@ Read the status code together with the `WWW-Authenticate` header, which is where
 * `"Authentication token introspection failed"` in that body - Glance validates tokens by introspecting them against the SSO rather than by checking their signature, and that call came back negative. Check whether the SSO agrees:
 
   ```bash
+  # a brand new token
   python3 getTokenDB.py --check --audience glance-api-access-client --introspect
+
+  # or the exact token the API just rejected
+  python3 getTokenDB.py --check --audience glance-api-access-client --cached-token --introspect
   ```
 
   `active=true` means the token is sound and the failure is on Glance's side of its own introspection call, which only its owners can fix. `active=false` means the SSO itself does not consider the token valid, and the full response says why.
+
+  `--check` requests a new token by default, which is what proves the client id and secret still work. That is not the token an API has just refused, so `--cached-token` (or `--token-file`) examines a specific one instead: if a cached token introspects as inactive while a fresh one is active, tokens are going stale before their stated expiry rather than being wrong.
 * `401` with **no challenge header and no JSON body** - the endpoint is not accepting bearer tokens at all. This is what `/incubator/api/` returns while its configuration is unfinished, and no change on the calling side fixes it.
 
 An audience set in `cms_info_sso.json` silently overrides the built-in one for that host, and a stale value there is easy to miss when the only symptom is a 401. `-v` prints the audience and where it came from:
