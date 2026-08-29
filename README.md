@@ -109,27 +109,18 @@ Read the status code together with the `WWW-Authenticate` header, which is where
 * `401` **with** a challenge header - token validation failed, usually a wrong audience.
 * `403` - the token was accepted but this identity may not read the resource, so it needs a role.
 * `401` with a **JSON body** - the Glance application itself turned the token down, and the body says why. `X-Powered-By: PHP`, `Content-Type: application/json` and `Vary: Authorization` mark this case: the endpoint reads tokens fine, so the complaint is about this particular token.
-* `"Authentication token introspection failed"` in that body - Glance validates tokens by introspecting them against the SSO rather than by checking their signature, and that call came back negative. Check whether the SSO agrees:
+* `"Authentication token introspection failed"` in that body - Glance validates tokens by introspecting them against the SSO rather than by checking their signature, and that call came back negative.
 
   ```bash
-  # a brand new token
   python3 getTokenDB.py --check --audience glance-api-access-client --introspect
-
-  # or the exact token the API just rejected
-  python3 getTokenDB.py --check --audience glance-api-access-client --cached-token --introspect
   ```
 
-  `active=true` means the token is sound and the failure is on Glance's side of its own introspection call, which only its owners can fix. `active=false` means the SSO itself does not consider the token valid, and the full response says why.
+  Read the result carefully, because introspection has an audience rule of its own: **the SSO only introspects a token for a client named in that token's `aud`**. Asking as `cms-info-scraper` about a token addressed to `glance-api-access-client` therefore answers `active: false` no matter how good the token is, and proves nothing on its own. `--introspect` handles this by then introspecting a token addressed to us as a control:
 
-  `--check` requests a new token by default, which is what proves the client id and secret still work. That is not the token an API has just refused, so `--cached-token` (or `--token-file`) examines a specific one instead: if a cached token introspects as inactive while a fresh one is active, tokens are going stale before their stated expiry rather than being wrong.
-* `401` with **no challenge header and no JSON body** - the endpoint is not accepting bearer tokens at all. This is what `/incubator/api/` returns while its configuration is unfinished, and no change on the calling side fixes it.
+  * control `active=true` - introspection works, and the first `false` was only the audience rule. Whether Glance's own introspection succeeds can only be seen from their side.
+  * control `active=false` - even a token addressed to us introspects as inactive, so tokens from the `api-access` endpoint may not be introspectable at all. That would explain an API which validates by introspection refusing them, and is worth raising with the SSO team as well as with Glance.
 
-An audience set in `cms_info_sso.json` silently overrides the built-in one for that host, and a stale value there is easy to miss when the only symptom is a 401. `-v` prints the audience and where it came from:
-
-```
-audience "glance-api-access-client" (from the audiences map)
-audience "vocms0705" (from the config file)
-```
+  `--check` requests a new token by default, which is what proves the client id and secret still work. That is not the token an API has just refused, so `--cached-token` (or `--token-file`) examines a specific one instead.
 
 ## Keeping the client secret safe
 

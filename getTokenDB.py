@@ -537,14 +537,36 @@ def report_token(cfg, token, audience, args):
         if active:
             print('  The SSO considers this token valid. An API that still '
                   'reports\n  "introspection failed" is failing on its own '
-                  'side of that call,\n  which is for its owners to look at.')
+                  'side of that call.')
             for key in ('aud', 'sub', 'client_id', 'scope', 'exp'):
                 if key in result:
                     print(f'  {key}: {json.dumps(result[key])}')
         else:
-            print('  The SSO does not consider this token active, which is '
-                  'what an API\n  introspecting it would see. Full response:')
-            print(f'  {json.dumps(result)}')
+            # Keycloak only introspects a token for a client named in its
+            # audience, so asking about a token addressed to somebody else
+            # always answers false. That tells us nothing by itself, and the
+            # way to find out is to introspect a token addressed to us.
+            print('  Expected: the SSO only introspects a token for a client '
+                  'in its\n  audience, and we asked as '
+                  f'"{cfg["client_id"]}" about a token for\n  "{audience}". '
+                  'This does not mean the token is invalid.')
+            print('\n  Introspecting a token addressed to us instead, as a '
+                  'control:')
+            control = introspect(cfg, get_token(cfg, cfg['client_id'],
+                                                use_cache=False))
+            if control.get('active'):
+                print('    active=True - introspection works here, so the '
+                      'result above is\n    only the audience check. Whether '
+                      f'"{audience}" tokens introspect\n    correctly can '
+                      'only be seen from the API side.')
+            else:
+                print('    active=False - even a token addressed to us '
+                      'introspects as\n    inactive, so tokens from the '
+                      'api-access endpoint may not be\n    introspectable at '
+                      'all. That would explain an API which\n    validates by '
+                      'introspection rejecting them, and is worth\n    '
+                      'raising with the SSO team as well as the API owners.')
+                print(f'    full response: {json.dumps(control)}')
     return 0
 
 
