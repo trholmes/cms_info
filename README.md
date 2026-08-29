@@ -108,7 +108,15 @@ Read the status code together with the `WWW-Authenticate` header, which is where
 
 * `401` **with** a challenge header - token validation failed, usually a wrong audience.
 * `403` - the token was accepted but this identity may not read the resource, so it needs a role.
-* `401` **without** a challenge header - the endpoint is not accepting bearer tokens at all. This is what `/incubator/api/` returns while its configuration is unfinished, and no change on the calling side fixes it.
+* `401` with a **JSON body** - the Glance application itself turned the token down, and the body says why. `X-Powered-By: PHP`, `Content-Type: application/json` and `Vary: Authorization` mark this case: the endpoint reads tokens fine, so suspect the audience.
+* `401` with **no challenge header and no JSON body** - the endpoint is not accepting bearer tokens at all. This is what `/incubator/api/` returns while its configuration is unfinished, and no change on the calling side fixes it.
+
+An audience set in `cms_info_sso.json` silently overrides the built-in one for that host, and a stale value there is easy to miss when the only symptom is a 401. `-v` prints the audience and where it came from:
+
+```
+audience "glance-api-access-client" (from the audiences map)
+audience "vocms0705" (from the config file)
+```
 
 ## Keeping the client secret safe
 

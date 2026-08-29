@@ -123,14 +123,23 @@ def load_config(path):
     return cfg
 
 
-def audience_for(url, cfg, override=None):
-    """The target application to request a token for, or None."""
-    if override:
-        return override
-    if os.environ.get('CERN_API_AUDIENCE'):
-        return os.environ['CERN_API_AUDIENCE']
+def audience_for(url, cfg, override=None, with_source=False):
+    """The target application to request a token for, or None.
+
+    Also reports where the value came from. A stale audience in the config
+    file silently overrides the built-in one for that host, which is hard to
+    spot when the only symptom is a 401 from the API.
+    """
     host = urllib.parse.urlparse(url).netloc.split(':')[0]
-    return cfg['audiences'].get(host)
+    if override:
+        audience, source = override, '--audience'
+    elif os.environ.get('CERN_API_AUDIENCE'):
+        audience, source = os.environ['CERN_API_AUDIENCE'], 'CERN_API_AUDIENCE'
+    else:
+        audience = cfg['audiences'].get(host)
+        source = ('the audiences map' if audience == AUDIENCES.get(host)
+                  else 'the config file')
+    return (audience, source) if with_source else audience
 
 
 # ------------------------------------------------------------- tokens -------
@@ -284,56 +293,55 @@ def read_supplied_token(args):
 def describe_refusal(exc, token, audience, verbose=False):
     """Explain a 401/403 from the API.
 
-    The two are different problems and it is worth not confusing them:
-      401 the token was not accepted at all - wrong audience, or the endpoint
-          validates against a different issuer/key. Nothing to do with roles.
-      403 the token was accepted, but this identity may not read this resource,
-          which is the case that needs a role on the target application.
-    Apache's mod_auth_openidc puts the precise reason in WWW-Authenticate, so
-    show that first; its HTML body says nothing useful.
+    Which layer answered matters, and the headers give it away. A web server
+    rejecting a token challenges with WWW-Authenticate and serves its own HTML
+    error page. An application answering for itself typically sends JSON, and
+    says why in the body - so print the body, which is the most direct
+    statement of the problem available.
     """
     claims = decode_claims(token)
     challenge = exc.headers.get('WWW-Authenticate') if exc.headers else None
+    content_type = exc.headers.get('Content-Type', '') if exc.headers else ''
+    try:
+        body = exc.read().decode('utf-8', 'replace').strip()
+    except Exception:
+        body = ''
 
     lines = [f'ERROR: the API refused the token ({exc.code} {exc.reason}).']
     if challenge:
         lines.append(f'       server said: {challenge}')
+    if body:
+        for line in body[:500].splitlines():
+            lines.append(f'       {line}')
     lines.append(f'       token sent: sub="{claims.get("sub", "?")}" '
                  f'aud="{claims.get("aud", "?")}"')
 
     if verbose and exc.headers:
-        # Which layer refused matters: mod_auth_openidc always challenges with
-        # WWW-Authenticate, so a 401 without one tends to come from the
-        # application behind Apache rather than from token validation.
         lines.append('       response headers:')
         lines += [f'         {k}: {v}' for k, v in exc.headers.items()]
 
-    if exc.code == 401 and not challenge:
-        lines += [
-            '       401 with no WWW-Authenticate header. A properly configured',
-            '       OAuth resource server challenges when it rejects a token, so',
-            '       its absence suggests this endpoint does not accept bearer',
-            '       tokens at all: some web server setups answer 401 rather than',
-            '       redirecting once they see an Authorization header, which',
-            '       looks like a rejected token but is not one. If different',
-            '       audiences all produce this same reply, that is the likely',
-            '       reading, and no audience will work until the endpoint is',
-            '       configured to accept tokens. Its owners have to do that.',
-        ]
-    elif exc.code == 401:
-        lines += [
-            '       401 means the token was not accepted, which is usually the',
-            f'       audience: we asked for "{audience}", but the API may validate',
-            '       a different Client ID. Ask its owners which "aud" they expect.',
-            '       Note this is not about your own CERN login: the token',
-            f'       identifies "{claims.get("sub", "?")}", not you, so being',
-            '       logged in on lxplus grants it nothing.',
-        ]
-    else:
+    from_application = 'json' in content_type.lower()
+    if exc.code == 403:
         lines += [
             '       403 means the token was valid but this identity is not',
             '       allowed to read this. The target application needs to grant',
             f'       "{claims.get("sub", "?")}" a role.',
+        ]
+    elif from_application or challenge:
+        lines += [
+            '       The endpoint did look at the token and turned it down, so',
+            f'       check the audience first: this asked for "{audience}".',
+            '       Confirm it is the application that owns this API, and that',
+            '       no stale value in the config file or CERN_API_AUDIENCE is',
+            '       overriding it - run with -v to see which one was used and',
+            '       where it came from.',
+        ]
+    else:
+        lines += [
+            '       401 with no challenge header and no JSON body suggests the',
+            '       endpoint is not accepting bearer tokens at all rather than',
+            '       rejecting this one, in which case no audience will work',
+            '       until its owners finish configuring it.',
         ]
     return '\n'.join(lines)
 
@@ -355,7 +363,9 @@ def fetch(url, cfg, args):
                                      args.verbose))
             raise
 
-    audience = audience_for(url, cfg, args.audience)
+    audience, source = audience_for(url, cfg, args.audience, with_source=True)
+    if audience:
+        log(f'audience "{audience}" (from {source})', args.verbose)
     if not audience:
         raise SystemExit(
             f'ERROR: no audience configured for {url}. Pass --audience, set '
