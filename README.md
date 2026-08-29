@@ -108,7 +108,14 @@ Read the status code together with the `WWW-Authenticate` header, which is where
 
 * `401` **with** a challenge header - token validation failed, usually a wrong audience.
 * `403` - the token was accepted but this identity may not read the resource, so it needs a role.
-* `401` with a **JSON body** - the Glance application itself turned the token down, and the body says why. `X-Powered-By: PHP`, `Content-Type: application/json` and `Vary: Authorization` mark this case: the endpoint reads tokens fine, so suspect the audience.
+* `401` with a **JSON body** - the Glance application itself turned the token down, and the body says why. `X-Powered-By: PHP`, `Content-Type: application/json` and `Vary: Authorization` mark this case: the endpoint reads tokens fine, so the complaint is about this particular token.
+* `"Authentication token introspection failed"` in that body - Glance validates tokens by introspecting them against the SSO rather than by checking their signature, and that call came back negative. Check whether the SSO agrees:
+
+  ```bash
+  python3 getTokenDB.py --check --audience glance-api-access-client --introspect
+  ```
+
+  `active=true` means the token is sound and the failure is on Glance's side of its own introspection call, which only its owners can fix. `active=false` means the SSO itself does not consider the token valid, and the full response says why.
 * `401` with **no challenge header and no JSON body** - the endpoint is not accepting bearer tokens at all. This is what `/incubator/api/` returns while its configuration is unfinished, and no change on the calling side fixes it.
 
 An audience set in `cms_info_sso.json` silently overrides the built-in one for that host, and a stale value there is easy to miss when the only symptom is a 401. `-v` prints the audience and where it came from:

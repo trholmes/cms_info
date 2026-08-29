@@ -148,6 +148,40 @@ def token_endpoint(auth_server=AUTH_SERVER, realm=REALM):
     return f'https://{auth_server}/auth/realms/{realm}/api-access/token'
 
 
+def introspection_endpoint(auth_server=AUTH_SERVER, realm=REALM):
+    return (f'https://{auth_server}/auth/realms/{realm}'
+            '/protocol/openid-connect/token/introspect')
+
+
+def introspect(cfg, token, auth_server=AUTH_SERVER, realm=REALM):
+    """Ask the SSO whether a token is active (RFC 7662).
+
+    Some APIs, Glance among them, validate a token by introspecting it rather
+    than by checking its signature. When such an API reports that
+    introspection failed, this says whether the SSO itself considers the token
+    active: if it does, the token is sound and the problem is on the API's
+    side of the introspection call.
+    """
+    if not cfg.get('client_secret'):
+        raise SystemExit('ERROR: introspection needs the client secret.')
+
+    data = urllib.parse.urlencode({
+        'client_id': cfg['client_id'],
+        'client_secret': cfg['client_secret'],
+        'token': token,
+    }).encode()
+    request = urllib.request.Request(
+        introspection_endpoint(auth_server, realm), data=data,
+        headers={'Content-Type': 'application/x-www-form-urlencoded'})
+    try:
+        with urllib.request.urlopen(request, timeout=HTTP_TIMEOUT) as response:
+            return json.load(response)
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode('utf-8', 'replace')[:300]
+        raise SystemExit(f'ERROR: introspection request failed '
+                         f'({exc.code} {exc.reason}): {body}')
+
+
 def decode_claims(token):
     """Decode the (unverified) payload of a JWT, for diagnostics only."""
     try:
@@ -461,6 +495,22 @@ def check_credentials(cfg, args):
     for key in ('cern_roles', 'roles', 'resource_access'):
         if key in claims:
             print(f'  {key}: {json.dumps(claims[key])}')
+
+    if args.introspect:
+        result = introspect(cfg, token)
+        active = result.get('active')
+        print(f'\nintrospection: active={active}')
+        if active:
+            print('  The SSO considers this token valid. An API that still '
+                  'reports\n  "introspection failed" is failing on its own '
+                  'side of that call,\n  which is for its owners to look at.')
+            for key in ('aud', 'sub', 'client_id', 'scope', 'exp'):
+                if key in result:
+                    print(f'  {key}: {json.dumps(result[key])}')
+        else:
+            print('  The SSO does not consider this token active, which is '
+                  'what an API\n  introspecting it would see. Full response:')
+            print(f'  {json.dumps(result)}')
     return 0
 
 
@@ -489,6 +539,9 @@ def main(argv=None):
                         help='ignore any cached token and request a fresh one')
     parser.add_argument('--check', action='store_true',
                         help='request a token, print its claims and exit')
+    parser.add_argument('--introspect', action='store_true',
+                        help='with --check, also ask the SSO whether the '
+                             'token is active (RFC 7662)')
     parser.add_argument('--insecure', action='store_true',
                         help='do not verify TLS certificates')
     parser.add_argument('-v', '--verbose', action='store_true')
