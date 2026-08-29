@@ -80,32 +80,35 @@ python3 getTokenDB.py 'https://...' --token-file /tmp/token.txt -v
 
 That flow needs a human to log in through a browser and the token lasts about 20 minutes, so it is a diagnostic rather than something for the cron job. If a URL works with a personal token but not with the service account, the endpoint does accept tokens and the problem is that `service-account-cms-info-scraper` lacks permissions.
 
-### Note on cmsfence.cern.ch
+### The Glance (cmsfence.cern.ch) endpoints
 
-`https://cmsfence.cern.ch/incubator/api/...` is served by Apache `mod_auth_openidc`, and from inside the CERN network it does read bearer tokens: a request carrying one gets a `401` where an anonymous request gets redirected to the interactive login. (Probing from outside CERN is misleading - everything is redirected there regardless.)
+The iCMS `tools-api` endpoints are being replaced by Glance APIs on `cmsfence.cern.ch`, which take an OIDC access token as a Bearer token. The audience for all of them is `glance-api-access-client`, and `cms-info-scraper` is in the matching e-group.
 
-The audience is `glance-api-access-client`, which is the application `cms-info-scraper` was granted access to. That grant is what makes it the right value: CERN permissions are given per target application, so the application we were let into is the one we can usefully ask tokens for. Reading a client id off the browser login redirect, as an earlier version of this file did, finds the client the *site* uses to log people in, which is a different setting and was refused with a `401`.
+| old iCMS endpoint | replacement | state |
+| --- | --- | --- |
+| `tools-api/restplus/org_chart/tenures` | `cmsfence.cern.ch/membership/api/appointments/search` | available |
+| `tools-api/restplus/org_chart/job_openings` | `cmsfence.cern.ch/incubator/api/job_openings` | not yet - Glance still has configuration and development work to finish |
+| `tools-api/restplus/cadi/xeb_report` | not yet announced | - |
 
-When the API refuses a token, read the status code together with the `WWW-Authenticate` header, which is where `mod_auth_openidc` states its actual reason (the HTML body says nothing useful). `getTokenDB.py` prints it, and with `-v` dumps every response header:
+The appointments search takes its filter as a url-encoded `queryString` parameter, which is what `-d/--param` is for:
 
-* `401` **with** a challenge header - token validation failed, usually a wrong audience. Nothing to do with roles.
-* `403` - the token was accepted but this identity may not read the resource, so the target application needs to grant `service-account-cms-info-scraper` a role.
-* `401` **without** a challenge header - the endpoint probably does not accept bearer tokens at all, see below.
+```bash
+python3 getTokenDB.py 'https://cmsfence.cern.ch/membership/api/appointments/search' \
+    -d 'queryString="startDate" <= "2026-12-31" AND "endDate" >= "2026-01-01"' \
+    -o tenures_raw.json --expect-json
+```
 
-### What cmsfence.cern.ch currently does
+Until an endpoint is ready, its `getDB.py` line in `getDBs.sh` stays as it is.
 
-Tested from lxplus, `https://cmsfence.cern.ch/incubator/api/job_openings` answers:
+Note that the replacements do not return the same fields as the endpoints they replace, so `cleanup.py` needs adjusting for each one as it is switched over. The appointments records are shaped quite differently from the old tenures records - `categoryName` and `memberName` rather than `domain`, `position_level` and `src_unit_type` - and the job openings records rename `status` to `job_open_position_status`.
 
-| request | response |
-| --- | --- |
-| anonymous | `302` to the CERN SSO login |
-| `Authorization: Bearer <token>` | `401`, Apache's own error page, no `WWW-Authenticate` |
+### Reading a refusal from these APIs
 
-Both `glance-api-access-client` and `vocms0705` give the same `401`, and the token is well formed either way: its `aud` matches what was asked for, and `resource_access` shows a role on `glance-api-access-client`, so the client credentials and the grant are in order.
+Read the status code together with the `WWW-Authenticate` header, which is where `mod_auth_openidc` states its reason (the HTML body says nothing useful). `getTokenDB.py` prints it, and `-v` dumps every response header:
 
-A resource server that rejects a token says so in a `WWW-Authenticate` header. Nothing here does. The likely reading is that this vhost is a browser-session gateway that answers `401` rather than redirecting once it sees an `Authorization` header - which looks like a rejected token but is not one. If so, no audience will work, and the fix belongs to whoever runs the endpoint: it has to be configured as an OAuth2 resource server, per [Securing APIs](https://auth.docs.cern.ch/user-documentation/oidc/securing-apis/).
-
-`getDB.py` does not work against this endpoint either, so until then there is no way in from a script.
+* `401` **with** a challenge header - token validation failed, usually a wrong audience.
+* `403` - the token was accepted but this identity may not read the resource, so it needs a role.
+* `401` **without** a challenge header - the endpoint is not accepting bearer tokens at all. This is what `/incubator/api/` returns while its configuration is unfinished, and no change on the calling side fixes it.
 
 ## Keeping the client secret safe
 

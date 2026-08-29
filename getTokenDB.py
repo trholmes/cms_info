@@ -22,6 +22,7 @@ access - via a role mapped to a group that our client subscribes to.
 
 Usage:
     python3 getTokenDB.py <url> [-o outfile] [--expect-json] [--audience <client-id>]
+    python3 getTokenDB.py <url> -d 'queryString="startDate" <= "2026-12-31"'
     python3 getTokenDB.py --check --audience <client-id>   # test the credentials only
 
 Credentials are read from, in order of precedence:
@@ -389,6 +390,25 @@ def fetch(url, cfg, args):
 
 # ---------------------------------------------------------------- output ----
 
+def add_params(url, params):
+    """Append `key=value` pairs to a URL, url-encoding the values.
+
+    This mirrors `curl -G --data-urlencode`, which is how the Glance
+    membership API is documented: its queryString parameter carries spaces,
+    quotes and comparison operators that must not reach the server raw.
+    """
+    if not params:
+        return url
+    pairs = []
+    for param in params:
+        if '=' not in param:
+            raise SystemExit(f'ERROR: --param needs key=value, got "{param}"')
+        key, value = param.split('=', 1)
+        pairs.append((key, value))
+    separator = '&' if urllib.parse.urlparse(url).query else '?'
+    return url + separator + urllib.parse.urlencode(pairs)
+
+
 def write_output(body, outfile, expect_json):
     if expect_json:
         try:
@@ -452,6 +472,9 @@ def main(argv=None):
     parser.add_argument('--token-file',
                         help='read the token from this file, e.g. the output '
                              'of "auth-get-user-token -o token.txt"')
+    parser.add_argument('-d', '--param', action='append', metavar='KEY=VALUE',
+                        help='query parameter, url-encoded like curl\'s '
+                             '--data-urlencode; repeatable')
     parser.add_argument('--no-cache', action='store_true',
                         help='ignore any cached token and request a fresh one')
     parser.add_argument('--check', action='store_true',
@@ -470,7 +493,8 @@ def main(argv=None):
     if not args.url:
         parser.error('a URL is required (or use --check)')
 
-    write_output(fetch(args.url, cfg, args), args.outfile, args.expect_json)
+    url = add_params(args.url, args.param)
+    write_output(fetch(url, cfg, args), args.outfile, args.expect_json)
     return 0
 
 

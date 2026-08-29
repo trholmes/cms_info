@@ -23,13 +23,18 @@ python3 ./getDB.py 'https://icms.cern.ch/tools-api/restplus/org_chart/tenures?ex
 python3 ./getDB.py 'https://icms.cern.ch/tools-api/restplus/cadi/xeb_report?xeb_report_period=14' > ${loc}cadi_raw.json
 python3 ./getDB.py 'https://icms.cern.ch/tools-api/restplus/org_chart/job_openings' > ${loc}nominations_raw.json
 
-# To move the iCMS API calls onto OIDC API access tokens (no Kerberos needed),
-# fill in the audience in cms_info_sso.json, check it once with
-#   python3 getTokenDB.py --check --audience <the-icms-api-client-id>
-# and then swap the three lines above for these:
-#python3 getTokenDB.py 'https://icms.cern.ch/tools-api/restplus/org_chart/tenures?exclude_past=true' -o ${loc}tenures_raw.json --expect-json
-#python3 getTokenDB.py 'https://icms.cern.ch/tools-api/restplus/cadi/xeb_report?xeb_report_period=14' -o ${loc}cadi_raw.json --expect-json
-#python3 getTokenDB.py 'https://icms.cern.ch/tools-api/restplus/org_chart/job_openings' -o ${loc}nominations_raw.json --expect-json
+# Glance replacements for the iCMS tools-api endpoints, called with an OIDC
+# access token (audience glance-api-access-client) instead of an SSO cookie.
+#
+# Tenures -> the Membership appointments search. Ready to use, but the records
+# have different field names, so cleanup.py needs adjusting before switching:
+#python3 getTokenDB.py 'https://cmsfence.cern.ch/membership/api/appointments/search' -d 'queryString="startDate" <= "'$datestr'" AND "endDate" >= "'$datestr'"' -o ${loc}tenures_raw.json --expect-json
+#
+# Job openings -> /incubator/api/job_openings. Not usable yet: Glance still has
+# configuration work to finish, and it answers 401 to a valid token until then.
+#python3 getTokenDB.py 'https://cmsfence.cern.ch/incubator/api/job_openings' -o ${loc}nominations_raw.json --expect-json
+#
+# No replacement announced yet for the CADI xeb_report endpoint.
 
 # CINCO is now on the new SSO with a fix for the SSO to allow scripts to go through instead of choking on some "javascript not enabled" URL in the sequence
 
