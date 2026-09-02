@@ -101,7 +101,7 @@ The iCMS `tools-api` endpoints are being replaced by Glance APIs on `cmsfence.ce
 
 | old iCMS endpoint | replacement | audience | state |
 | --- | --- | --- | --- |
-| `tools-api/restplus/org_chart/tenures` | `cmsfence.cern.ch/membership/api/appointments/search` | `cms-membership-api-prod` | working |
+| `tools-api/restplus/org_chart/tenures` | `cmsfence.cern.ch/membership/api/appointments/search` | `cms-membership-api-prod` | **switched over** |
 | `tools-api/restplus/org_chart/job_openings` | `cmsfence.cern.ch/incubator/api/job_openings` | not known yet | Glance still has configuration and development work to finish |
 | `tools-api/restplus/cadi/xeb_report` | not yet announced | - | - |
 
@@ -115,7 +115,20 @@ python3 getTokenDB.py 'https://cmsfence.cern.ch/membership/api/appointments/sear
     -o tenures_raw.json --expect-json
 ```
 
-Until an endpoint is ready, its `getDB.py` line in `getDBs.sh` stays as it is. The replacements return different fields from the endpoints they replace, so `cleanup.py` needs adjusting for each one as it is switched over: the appointments records carry `categoryName`, `memberName` and `startDateString` rather than `domain`, `position_level` and `src_unit_type`, and the job openings records rename `status` to `job_open_position_status`.
+### How cleanup.py reads the appointments records
+
+The appointments records describe the same appointments as the old tenures records but carry none of the fields the board pages were built from. The unit somebody was appointed to is only present as prose in `categoryName`, of the form `<position> of <unit> <unit type>`, e.g. `Chairperson of Collaboration Board` or `Coordinator of Physics Coordination Area`. `cleanup.py` parses that back into `position`, `domain` and `src_unit_type` with `parseCategoryName` and `appointmentToTenure`, and maps units to domains through an explicit `appointmentDomains` table rather than by matching on substrings - `Physics Performance & Datasets` would otherwise be swallowed by `Physics`.
+
+Categories with no unit at all - `Team Leader`, `Country Representative`, `TRG working group convenor` - belong to no page and are left out of them. So are units that have no page, such as `Statistics Committee` and the subdetectors, funding agencies and institutes.
+
+Two things the old endpoint provided are simply gone, and no parsing recovers them:
+
+* **`ex_officio_rule_id`.** The Management and Executive Boards were largely composed of ex-officio members, resolved through `getPrimaryRole`. With no ex-officio information, nobody is grouped as an ex-officio member and those pages carry only what names them directly: the Management Board is left with its advisors, and the Executive Board with nothing at all. The International Committee likewise has no appointments in the new data.
+* **`position_level`.** Ordering within a page now comes from `appointmentPositionLevels`, a table keyed on the parsed position - spokesperson, then chairs and coordinators, then deputies, then advisors, then members. It is a reasonable order rather than the one the database used to specify.
+
+Also note the records include appointments that have expired, marked `status: "Inactive"`, which the old endpoint excluded; `cleanup.py` keeps only the active ones.
+
+Each source is handled independently, so a dead endpoint no longer stops the whole script: a section that cannot rebuild its `.json` reports the reason and leaves the previous file in place. This matters while two of the four sources have no replacement - before, a missing nominations file stopped the run before tenures or the board pages were reached.
 
 ### Finding out what else is available
 
