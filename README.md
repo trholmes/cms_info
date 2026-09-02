@@ -133,15 +133,24 @@ What it has found on the membership API so far, all on the `cms-membership-api-p
 | `appointments/search` | the tenures replacement |
 | `members/search` | people |
 | `institutes/search` | institutes |
-| `docs` | answers 200 - read it for the real endpoint list |
+| `countries/search` | answers 500, so the route is real but wants parameters |
+| `docs` | a Swagger UI page, pointing at the spec below |
+| `Membership-API.v1.yaml` | the OpenAPI spec - the authoritative endpoint list |
 
 `<resource>/search` is the convention, and responses are **wrapped**: `{"results": [...], "numberOfResults": N}` rather than the bare array the old iCMS endpoints returned. `cleanup.py` reads the top level directly, so anything switched over needs `db["results"]` as well as the field renames. `/membership/api/` itself answers 500, and `appointments`, `categories` and `working-groups` without `/search` are 404, so the search form is the way in.
 
-To read one by hand:
+A 404 means no such route, while a 500 means the route exists and the request
+was incomplete - usually missing parameters - so those are worth a second look.
+
+The spec is the thing to read rather than guessing at paths:
 
 ```bash
-python3 getTokenDB.py 'https://cmsfence.cern.ch/membership/api/docs' | head -60
+python3 getTokenDB.py 'https://cmsfence.cern.ch/membership/api/Membership-API.v1.yaml' \
+    -o /tmp/membership-api.yaml
+grep -nE '^  /|operationId:|summary:' /tmp/membership-api.yaml | head -80
 ```
+
+Do not pass `--expect-json` there: the spec is YAML.
 
 It never guesses an audience: a path with none configured is reported as such. Audience names are not guessable, and the ones that look obvious are not registered - checking `cms-incubator-api-prod`, `cms-cadi-api-prod`, `cms-icms-api-prod`, `cms-conferences-api-prod` and `cms-orgchart-api-prod` against the SSO found none of them to exist, while `cms-membership-api-prod` and a `cms-membership-api-dev` twin do. So each audience has to be asked for as its endpoint appears.
 

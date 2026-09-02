@@ -38,8 +38,9 @@ CANDIDATES = [
      'https://cmsfence.cern.ch/membership/api/members/search'),
     ('institutes/search',
      'https://cmsfence.cern.ch/membership/api/institutes/search'),
-    # /docs answers 200 - read it with getTokenDB.py for the real endpoint list
-    ('docs', 'https://cmsfence.cern.ch/membership/api/docs'),
+    # /docs is a Swagger UI page pointing at this spec, which lists everything
+    ('the OpenAPI spec',
+     'https://cmsfence.cern.ch/membership/api/Membership-API.v1.yaml'),
     # "<resource>/search" is the convention, so the rest are tried that way.
     # Anything the site might want: board and role structure, nominations.
     ('categories/search',
@@ -56,6 +57,7 @@ CANDIDATES = [
      'https://cmsfence.cern.ch/membership/api/working-groups/search'),
     ('workinggroups/search',
      'https://cmsfence.cern.ch/membership/api/workinggroups/search'),
+    # answers 500 rather than 404, so the route exists but wants parameters
     ('countries/search',
      'https://cmsfence.cern.ch/membership/api/countries/search'),
     ('job-openings/search',
@@ -92,6 +94,10 @@ def verdict(status, content_type, body):
         return 'refused', detail or f'{status}'
     if status in (301, 302, 303, 307, 308):
         return 'redirect', 'not token-aware, sends us to a login'
+    if status == 500:
+        # A route that does not exist answers 404, so a 500 means this one is
+        # real and our request is wrong - most likely missing parameters.
+        return 'exists?', '500 - route is real, request probably incomplete'
     return str(status), (body or '')[:60].replace('\n', ' ')
 
 
