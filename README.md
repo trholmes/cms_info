@@ -126,6 +126,23 @@ python3 probeGlance.py                  # the built-in candidate list
 python3 probeGlance.py URL [URL ...]    # specific URLs
 ```
 
+What it has found on the membership API so far, all on the `cms-membership-api-prod` audience:
+
+| endpoint | notes |
+| --- | --- |
+| `appointments/search` | the tenures replacement |
+| `members/search` | people |
+| `institutes/search` | institutes |
+| `docs` | answers 200 - read it for the real endpoint list |
+
+`<resource>/search` is the convention, and responses are **wrapped**: `{"results": [...], "numberOfResults": N}` rather than the bare array the old iCMS endpoints returned. `cleanup.py` reads the top level directly, so anything switched over needs `db["results"]` as well as the field renames. `/membership/api/` itself answers 500, and `appointments`, `categories` and `working-groups` without `/search` are 404, so the search form is the way in.
+
+To read one by hand:
+
+```bash
+python3 getTokenDB.py 'https://cmsfence.cern.ch/membership/api/docs' | head -60
+```
+
 It never guesses an audience: a path with none configured is reported as such. Audience names are not guessable, and the ones that look obvious are not registered - checking `cms-incubator-api-prod`, `cms-cadi-api-prod`, `cms-icms-api-prod`, `cms-conferences-api-prod` and `cms-orgchart-api-prod` against the SSO found none of them to exist, while `cms-membership-api-prod` and a `cms-membership-api-dev` twin do. So each audience has to be asked for as its endpoint appears.
 
 Whether a Client ID exists at all can be checked without any credentials, which saves asking about a typo:

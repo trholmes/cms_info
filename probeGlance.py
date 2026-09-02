@@ -30,27 +30,40 @@ import getTokenDB  # noqa: E402
 # Candidates worth trying. The membership API is the one known to work, so its
 # neighbours are the best guesses for the data the site still reads from iCMS.
 CANDIDATES = [
-    # tenures - this one is confirmed working
-    ('tenures (known good)',
+    # Confirmed working. Note the response is wrapped:
+    # {"results": [...], "numberOfResults": N}, not a bare array.
+    ('appointments/search (tenures)',
      'https://cmsfence.cern.ch/membership/api/appointments/search'),
-    # is there anything self-describing to read?
-    ('api root', 'https://cmsfence.cern.ch/membership/api/'),
-    ('openapi', 'https://cmsfence.cern.ch/membership/api/openapi.json'),
-    ('swagger', 'https://cmsfence.cern.ch/membership/api/swagger.json'),
-    ('docs', 'https://cmsfence.cern.ch/membership/api/docs'),
-    # other membership resources that might carry board/role structure
-    ('appointments', 'https://cmsfence.cern.ch/membership/api/appointments'),
-    ('categories', 'https://cmsfence.cern.ch/membership/api/categories'),
-    ('categories/search',
-     'https://cmsfence.cern.ch/membership/api/categories/search'),
     ('members/search',
      'https://cmsfence.cern.ch/membership/api/members/search'),
     ('institutes/search',
      'https://cmsfence.cern.ch/membership/api/institutes/search'),
-    ('working-groups',
-     'https://cmsfence.cern.ch/membership/api/working-groups'),
-    # nominations, which Glance say is not in service yet
-    ('job openings',
+    # /docs answers 200 - read it with getTokenDB.py for the real endpoint list
+    ('docs', 'https://cmsfence.cern.ch/membership/api/docs'),
+    # "<resource>/search" is the convention, so the rest are tried that way.
+    # Anything the site might want: board and role structure, nominations.
+    ('categories/search',
+     'https://cmsfence.cern.ch/membership/api/categories/search'),
+    ('positions/search',
+     'https://cmsfence.cern.ch/membership/api/positions/search'),
+    ('roles/search',
+     'https://cmsfence.cern.ch/membership/api/roles/search'),
+    ('activities/search',
+     'https://cmsfence.cern.ch/membership/api/activities/search'),
+    ('groups/search',
+     'https://cmsfence.cern.ch/membership/api/groups/search'),
+    ('working-groups/search',
+     'https://cmsfence.cern.ch/membership/api/working-groups/search'),
+    ('workinggroups/search',
+     'https://cmsfence.cern.ch/membership/api/workinggroups/search'),
+    ('countries/search',
+     'https://cmsfence.cern.ch/membership/api/countries/search'),
+    ('job-openings/search',
+     'https://cmsfence.cern.ch/membership/api/job-openings/search'),
+    ('nominations/search',
+     'https://cmsfence.cern.ch/membership/api/nominations/search'),
+    # nominations proper, which Glance say is not in service yet
+    ('job openings (incubator)',
      'https://cmsfence.cern.ch/incubator/api/job_openings'),
 ]
 
