@@ -28,6 +28,10 @@ cd ..
 # are ignored. cleanup.py parses these records into the old shape.
 python3 getTokenDB.py 'https://cmsfence.cern.ch/membership/api/appointments/search' -d 'queryString="startDate" <= "'$datestr'" AND "endDate" >= "'$datestr'"' -d 'limit=5000' -o ${loc}tenures_raw.json --expect-json
 
+# The appointments records name a member's institute but not its short code,
+# which the pages display, so fetch the institutes to look the codes up.
+python3 getTokenDB.py 'https://cmsfence.cern.ch/membership/api/institutes/search' -d 'limit=5000' -o ${loc}institutes_raw.json --expect-json
+
 # Job openings -> /incubator/api/job_openings, not in service yet: Glance
 # still has configuration work to finish and its audience is not known, so
 # nominations.json keeps whatever it last had.

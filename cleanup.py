@@ -99,6 +99,30 @@ def splitMemberName(name):
     parts = name.split()                        # "Maciej Malawski"
     return parts[0], " ".join(parts[1:])
 
+# The appointments records carry an institute name and id but not the short
+# code the pages display, so it is looked up from the institutes endpoint.
+# The field holding the code is not documented, so take the first plausible
+# one that is present.
+def loadInstituteCodes(path):
+    codes = {}
+    try:
+        f = open(path, "r")
+        db = json.load(f)
+        f.close()
+        if isinstance(db, dict) and "results" in db: db = db["results"]
+        for entry in db:
+            key = entry.get("id") or entry.get("instituteId")
+            for field in ["code", "instituteCode", "shortName", "short_name",
+                          "CODE", "acronym", "instituteAcronym"]:
+                if entry.get(field):
+                    codes[str(key)] = entry[field]
+                    break
+    except Exception as e:
+        print( f'ERROR when reading institute codes, pages will show the full name - got: {str(e)} ' )
+    return codes
+
+institute_codes = loadInstituteCodes("/eos/project-c/cmsweb/www/icmssecr/cms-info/institutes_raw.json")
+
 # Turn an appointments record into the shape the rest of this script expects
 def appointmentToTenure(entry):
     position, unit, unit_type = parseCategoryName(entry.get("categoryName") or "")
@@ -118,6 +142,8 @@ def appointmentToTenure(entry):
     tenure["name"] = entry.get("memberName")
     tenure["first_name"], tenure["last_name"] = splitMemberName(entry.get("memberName"))
     tenure["institute"] = entry.get("instituteName")
+    tenure["inst_code"] = institute_codes.get(str(entry.get("instituteId")),
+                                              entry.get("instituteName"))
     tenure["start_date"] = entry.get("startDateString")
     tenure["end_date"] = entry.get("endDateString")
     return tenure
