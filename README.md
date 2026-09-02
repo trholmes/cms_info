@@ -24,7 +24,7 @@ Because no Kerberos ticket is involved, this does not depend on a valid TGT in t
 
 ### Two things to know
 
-* **The `audience` is not our client.** It is the Client ID of the application that *owns* the API being called (e.g. the iCMS tools API), and it has to be looked up per API. Get it wrong and the token is issued but rejected.
+* **The `audience` is the API's own Client ID.** Not ours, and - the subtle part - not the application whose e-group grants us access either. `cms-info-scraper` is a member of `glance-api-access-client`, which is what *permits* the call, but a token addressed to that is refused; the membership API wants `cms-membership-api-prod`. Permission and audience are separate things, and the audience has to be asked of each API's owners. A token for the wrong audience is issued quite happily and then rejected.
 * **The token identifies a service account, not a person.** Its `sub` claim is `service-account-cms-info-scraper`. The target application must have granted that account access: its owners create a role, map it to a group, and our client subscribes to that group. A token that the API refuses with 401/403 usually means this step is missing, not that the credentials are wrong.
 
 ### Setup
@@ -43,7 +43,7 @@ That file sits in the working directory, which is this git repository, so both i
     "client_id": "cms-info-scraper",
     "client_secret": "the-secret-from-the-application-portal",
     "audiences": {
-        "icms.cern.ch": "the-target-api-client-id"
+        "cmsfence.cern.ch/membership/": "cms-membership-api-prod"
     }
 }
 ```
@@ -53,7 +53,7 @@ That file sits in the working directory, which is this git repository, so both i
 ### Checking that it works
 
 ```bash
-python3 getTokenDB.py --check --audience the-target-api-client-id
+python3 getTokenDB.py --check --audience cms-membership-api-prod
 ```
 
 This requests a token and prints its claims (subject, audience, lifetime) without calling any API, which separates "my credentials are wrong" from "the API will not accept me".
@@ -74,7 +74,7 @@ Claims are fixed when a token is issued, so a permission that was just granted -
 To try a call by hand, capture the token into a shell variable rather than pasting it:
 
 ```bash
-TOKEN=$(python3 getTokenDB.py --print-token --audience glance-api-access-client)
+TOKEN=$(python3 getTokenDB.py --print-token --audience cms-membership-api-prod)
 
 curl -G 'https://cmsfence.cern.ch/membership/api/appointments/search' \
     -H "Authorization: Bearer $TOKEN" \
@@ -97,13 +97,15 @@ That flow needs a human to log in through a browser and the token lasts about 20
 
 ### The Glance (cmsfence.cern.ch) endpoints
 
-The iCMS `tools-api` endpoints are being replaced by Glance APIs on `cmsfence.cern.ch`, which take an OIDC access token as a Bearer token. The audience for all of them is `glance-api-access-client`, and `cms-info-scraper` is in the matching e-group.
+The iCMS `tools-api` endpoints are being replaced by Glance APIs on `cmsfence.cern.ch`, which take an OIDC access token as a Bearer token.
 
-| old iCMS endpoint | replacement | state |
-| --- | --- | --- |
-| `tools-api/restplus/org_chart/tenures` | `cmsfence.cern.ch/membership/api/appointments/search` | reachable, but refuses our tokens - it validates by introspection, see below |
-| `tools-api/restplus/org_chart/job_openings` | `cmsfence.cern.ch/incubator/api/job_openings` | not yet - Glance still has configuration and development work to finish |
-| `tools-api/restplus/cadi/xeb_report` | not yet announced | - |
+| old iCMS endpoint | replacement | audience | state |
+| --- | --- | --- | --- |
+| `tools-api/restplus/org_chart/tenures` | `cmsfence.cern.ch/membership/api/appointments/search` | `cms-membership-api-prod` | working |
+| `tools-api/restplus/org_chart/job_openings` | `cmsfence.cern.ch/incubator/api/job_openings` | not known yet | Glance still has configuration and development work to finish |
+| `tools-api/restplus/cadi/xeb_report` | not yet announced | - | - |
+
+Each API has its own audience, so the `audiences` map is keyed by host **and path prefix**, longest match first. Ask Glance for the audience of each endpoint as it becomes available - it is not discoverable from the outside, and a wrong one produces a token that is issued and then refused.
 
 The appointments search takes its filter as a url-encoded `queryString` parameter, which is what `-d/--param` is for:
 
@@ -113,28 +115,20 @@ python3 getTokenDB.py 'https://cmsfence.cern.ch/membership/api/appointments/sear
     -o tenures_raw.json --expect-json
 ```
 
-Until an endpoint is ready, its `getDB.py` line in `getDBs.sh` stays as it is.
-
-Note that the replacements do not return the same fields as the endpoints they replace, so `cleanup.py` needs adjusting for each one as it is switched over. The appointments records are shaped quite differently from the old tenures records - `categoryName` and `memberName` rather than `domain`, `position_level` and `src_unit_type` - and the job openings records rename `status` to `job_open_position_status`.
+Until an endpoint is ready, its `getDB.py` line in `getDBs.sh` stays as it is. The replacements return different fields from the endpoints they replace, so `cleanup.py` needs adjusting for each one as it is switched over: the appointments records carry `categoryName`, `memberName` and `startDateString` rather than `domain`, `position_level` and `src_unit_type`, and the job openings records rename `status` to `job_open_position_status`.
 
 ### Reading a refusal from these APIs
 
-Read the status code together with the `WWW-Authenticate` header, which is where `mod_auth_openidc` states its reason (the HTML body says nothing useful). `getTokenDB.py` prints it, and `-v` dumps every response header:
+`getTokenDB.py` prints the `WWW-Authenticate` header and the response body, and `-v` dumps every response header and reports which audience was used and where it came from.
 
-* `401` **with** a challenge header - token validation failed, usually a wrong audience.
+* `401 {"detail":"Authentication token introspection failed."}` - **the audience is wrong.** The API introspects the token as itself, and the SSO only introspects a token for a client named in its audience, so a token addressed elsewhere fails that check no matter how valid it is. This is the error a wrong audience produces here, and it took a while to recognise: it says nothing about credentials, e-groups or roles.
+* `401` with a challenge header - the web server rejected the token, again usually the audience.
 * `403` - the token was accepted but this identity may not read the resource, so it needs a role.
-* `401` with a **JSON body** - the Glance application itself turned the token down, and the body says why. `X-Powered-By: PHP`, `Content-Type: application/json` and `Vary: Authorization` mark this case: the endpoint reads tokens fine, so the complaint is about this particular token.
-* `"Authentication token introspection failed"` in that body - Glance validates tokens by introspecting them against the SSO rather than by checking their signature, and that call comes back negative. This is the membership API's current state, and the cause has been pinned down:
+* `401` with no challenge header and no JSON body - the endpoint is not accepting bearer tokens at all, which is what `/incubator/api/` returns while unfinished.
 
-  ```bash
-  python3 getTokenDB.py --check --audience glance-api-access-client --introspect
-  ```
+Introspecting from the calling side (`--check --introspect`) is a weak test for the same reason: as `cms-info-scraper` we can only introspect tokens addressed to `cms-info-scraper`, so a `false` result is expected and means little.
 
-  **CERN's api-access tokens do not introspect as active.** A token freshly issued by `https://auth.cern.ch/auth/realms/cern/api-access/token`, with 20 minutes of validity left and addressed to the very client asking about it, comes back `{"active": false}`. The introspection request itself returns HTTP 200 rather than `401 invalid_client`, so the client is authenticated at that endpoint and the answer is genuinely about the token. Those tokens carry `refresh_expires_in: 0` and no lasting session for an introspection lookup to find.
-
-  Watch for a confound when reading this: the SSO only introspects a token for a client named in that token's `aud`, and answers `active: false` to anybody else, so asking as `cms-info-scraper` about a token for `glance-api-access-client` is false whatever the token's state. `--introspect` handles that by also introspecting a token addressed to us, and reports which audience that control actually received.
-
-  The consequence is that an API validating these tokens by introspection can never accept them, however the caller behaves. CERN's [Securing APIs](https://auth.docs.cern.ch/user-documentation/oidc/securing-apis/) guide accordingly tells API owners to verify the signature against `https://auth.cern.ch/auth/realms/cern/protocol/openid-connect/certs` and check the `aud` claim, and does not mention introspection. Resolving this needs the API to validate by signature, or a different way of obtaining a token that is introspectable.
+Note also that the token identifies `service-account-cms-info-scraper`, not the person running the script, so being logged in on lxplus grants it nothing.
 
 ## Keeping the client secret safe
 

@@ -38,7 +38,7 @@ Credentials are read from, in order of precedence:
             "client_id": "cms-info-scraper",
             "client_secret": "00000000-0000-0000-0000-000000000000",
             "audiences": {
-                "icms.cern.ch": "the-target-api-client-id"
+                "cmsfence.cern.ch/membership/": "cms-membership-api-prod"
             }
         }
 
@@ -73,15 +73,15 @@ TOKEN_CACHE_FILE = '.cms_info_token_cache.json'
 # audience is the Client ID of the application that owns the API, not ours.
 # These can also be set in the "audiences" block of the config file.
 AUDIENCES = {
-    # This is the application cms-info-scraper was actually granted access to,
-    # which is what makes it the audience: permissions are granted per target
-    # application, so the one we were let into is the one we can ask tokens
-    # for. (An earlier guess of vocms0705, read off the browser login redirect
-    # that cmsfence.cern.ch issues, was never granted to us and got a 401.)
-    'cmsfence.cern.ch': 'glance-api-access-client',
-    # The iCMS tools API is Glance-backed too, so the same audience may well
-    # work for it. Untested - uncomment and try once cmsfence is confirmed.
-    # 'icms.cern.ch': 'glance-api-access-client',
+    # The audience is the API's own Client ID. Note it is NOT the application
+    # whose e-group grants us access: cms-info-scraper is a member of
+    # glance-api-access-client, which is what permits the call, but a token
+    # addressed to that gets refused. The two are separate things.
+    'cmsfence.cern.ch/membership/': 'cms-membership-api-prod',
+    # Different APIs on the same host need different audiences, so keys may be
+    # a host or a host and path prefix; the longest match wins.
+    # /incubator/ (job openings) is not in service yet and its audience is
+    # not known - ask Glance for it when they announce the endpoint.
 }
 
 # Tokens are short lived; renew this many seconds before the stated expiry.
@@ -133,16 +133,28 @@ def audience_for(url, cfg, override=None, with_source=False):
     file silently overrides the built-in one for that host, which is hard to
     spot when the only symptom is a 401 from the API.
     """
-    host = urllib.parse.urlparse(url).netloc.split(':')[0]
     if override:
         audience, source = override, '--audience'
     elif os.environ.get('CERN_API_AUDIENCE'):
         audience, source = os.environ['CERN_API_AUDIENCE'], 'CERN_API_AUDIENCE'
     else:
-        audience = cfg['audiences'].get(host)
-        source = ('the audiences map' if audience == AUDIENCES.get(host)
+        key = match_audience_key(url, cfg['audiences'])
+        audience = cfg['audiences'].get(key) if key else None
+        source = ('the audiences map' if key and audience == AUDIENCES.get(key)
                   else 'the config file')
     return (audience, source) if with_source else audience
+
+
+def match_audience_key(url, audiences):
+    """The most specific configured key matching a URL, or None.
+
+    Keys are a host, optionally followed by a path prefix, so that two APIs
+    on one host can take different audiences. The longest match wins.
+    """
+    parsed = urllib.parse.urlparse(url)
+    target = parsed.netloc.split(':')[0] + parsed.path
+    matches = [k for k in audiences if target.startswith(k)]
+    return max(matches, key=len) if matches else None
 
 
 # ------------------------------------------------------------- tokens -------
@@ -579,12 +591,14 @@ def report_token(cfg, token, audience, args):
                       f'"{audience}" tokens introspect\n    correctly can '
                       'only be seen from the API side.')
             else:
-                print('    active=False - even a token addressed to us '
-                      'introspects as\n    inactive, so tokens from the '
-                      'api-access endpoint may not be\n    introspectable at '
-                      'all. That would explain an API which\n    validates by '
-                      'introspection rejecting them, and is worth\n    '
-                      'raising with the SSO team as well as the API owners.')
+                print('    active=False here too. Introspection from the '
+                      'calling side is\n    not a reliable test: it does not '
+                      'follow that the token is bad. An\n    API reporting '
+                      '"introspection failed" is most likely introspecting '
+                      'as\n    itself and hitting the same audience rule, '
+                      'which means the audience\n    is wrong - it must be '
+                      "the API's own Client ID, not the\n    application "
+                      'whose e-group grants us access.')
                 print(f'    full response: {json.dumps(control)}')
     return 0
 

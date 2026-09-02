@@ -24,14 +24,15 @@ python3 ./getDB.py 'https://icms.cern.ch/tools-api/restplus/cadi/xeb_report?xeb_
 python3 ./getDB.py 'https://icms.cern.ch/tools-api/restplus/org_chart/job_openings' > ${loc}nominations_raw.json
 
 # Glance replacements for the iCMS tools-api endpoints, called with an OIDC
-# access token (audience glance-api-access-client) instead of an SSO cookie.
+# access token instead of an SSO cookie. Each API has its own audience.
 #
-# Tenures -> the Membership appointments search. Ready to use, but the records
-# have different field names, so cleanup.py needs adjusting before switching:
+# Tenures -> the Membership appointments search (audience cms-membership-api-prod).
+# This one works; the records have different field names from the old endpoint,
+# so cleanup.py needs adjusting before switching over:
 #python3 getTokenDB.py 'https://cmsfence.cern.ch/membership/api/appointments/search' -d 'queryString="startDate" <= "'$datestr'" AND "endDate" >= "'$datestr'"' -o ${loc}tenures_raw.json --expect-json
 #
 # Job openings -> /incubator/api/job_openings. Not usable yet: Glance still has
-# configuration work to finish, and it answers 401 to a valid token until then.
+# configuration work to finish, and its audience is not known either.
 #python3 getTokenDB.py 'https://cmsfence.cern.ch/incubator/api/job_openings' -o ${loc}nominations_raw.json --expect-json
 #
 # No replacement announced yet for the CADI xeb_report endpoint.
