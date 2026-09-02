@@ -117,6 +117,26 @@ python3 getTokenDB.py 'https://cmsfence.cern.ch/membership/api/appointments/sear
 
 Until an endpoint is ready, its `getDB.py` line in `getDBs.sh` stays as it is. The replacements return different fields from the endpoints they replace, so `cleanup.py` needs adjusting for each one as it is switched over: the appointments records carry `categoryName`, `memberName` and `startDateString` rather than `domain`, `position_level` and `src_unit_type`, and the job openings records rename `status` to `job_open_position_status`.
 
+### Finding out what else is available
+
+`probeGlance.py` tries a list of candidate Glance URLs and reports which answer, which refuse us and which do not exist. It is a migration aid rather than part of the nightly run, useful for checking what Glance has switched on as they work through the remaining endpoints:
+
+```bash
+python3 probeGlance.py                  # the built-in candidate list
+python3 probeGlance.py URL [URL ...]    # specific URLs
+```
+
+It never guesses an audience: a path with none configured is reported as such. Audience names are not guessable, and the ones that look obvious are not registered - checking `cms-incubator-api-prod`, `cms-cadi-api-prod`, `cms-icms-api-prod`, `cms-conferences-api-prod` and `cms-orgchart-api-prod` against the SSO found none of them to exist, while `cms-membership-api-prod` and a `cms-membership-api-dev` twin do. So each audience has to be asked for as its endpoint appears.
+
+Whether a Client ID exists at all can be checked without any credentials, which saves asking about a typo:
+
+```bash
+curl -sS -o /dev/null -w '%{http_code}\n' \
+  'https://auth.cern.ch/auth/realms/cern/protocol/openid-connect/auth?response_type=code&scope=openid&client_id=SOME-CLIENT&redirect_uri=https%3A%2F%2Fexample.cern.ch%2Fcb'
+```
+
+`400` with `Client not found` in the body means no such application; a login page means it exists.
+
 ### Reading a refusal from these APIs
 
 `getTokenDB.py` prints the `WWW-Authenticate` header and the response body, and `-v` dumps every response header and reports which audience was used and where it came from.
