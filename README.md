@@ -119,6 +119,8 @@ python3 getTokenDB.py 'https://cmsfence.cern.ch/membership/api/appointments/sear
 
 The appointments records describe the same appointments as the old tenures records but carry none of the fields the board pages were built from. The unit somebody was appointed to is only present as prose in `categoryName`, of the form `<position> of <unit> <unit type>`, e.g. `Chairperson of Collaboration Board` or `Coordinator of Physics Coordination Area`. `cleanup.py` parses that back into `position`, `domain` and `src_unit_type` with `parseCategoryName` and `appointmentToTenure`, and maps units to domains through an explicit `appointmentDomains` table rather than by matching on substrings - `Physics Performance & Datasets` would otherwise be swallowed by `Physics`.
 
+The page templates read `{position}`, `{cms_id}` and `{first_name} {last_name}` from each member, so `appointmentToTenure` fills those in: `cms_id` from `memberId`, and the names by splitting the single `memberName` the API returns. `splitMemberName` takes the first word as the first name and the rest as the surname, and handles a `"Surname, Forename"` spelling too.
+
 Categories with no unit at all - `Team Leader`, `Country Representative`, `TRG working group convenor` - belong to no page and are left out of them. So are units that have no page, such as `Statistics Committee` and the subdetectors, funding agencies and institutes.
 
 Two things the old endpoint provided are simply gone, and no parsing recovers them:

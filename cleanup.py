@@ -89,6 +89,16 @@ def parseCategoryName(name):
     # e.g. "Team Leader", "TRG working group convenor" - no unit, so no page
     return name, None, None
 
+# The appointments API gives a single memberName, while the page templates
+# want first_name and last_name separately
+def splitMemberName(name):
+    if not name: return "", ""
+    if "," in name:                             # "Malawski, Maciej"
+        last, _, first = name.partition(",")
+        return first.strip(), last.strip()
+    parts = name.split()                        # "Maciej Malawski"
+    return parts[0], " ".join(parts[1:])
+
 # Turn an appointments record into the shape the rest of this script expects
 def appointmentToTenure(entry):
     position, unit, unit_type = parseCategoryName(entry.get("categoryName") or "")
@@ -104,8 +114,9 @@ def appointmentToTenure(entry):
     tenure["cms_id"] = entry.get("memberId")
     tenure["unit_id"] = entry.get("categoryId")
     tenure["src_unit_id"] = entry.get("categoryId")
-    # the names the pages were reading before
+    # the names the page templates read
     tenure["name"] = entry.get("memberName")
+    tenure["first_name"], tenure["last_name"] = splitMemberName(entry.get("memberName"))
     tenure["institute"] = entry.get("instituteName")
     tenure["start_date"] = entry.get("startDateString")
     tenure["end_date"] = entry.get("endDateString")
