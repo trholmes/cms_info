@@ -118,35 +118,41 @@ year = str(today.year)
 if do_cinco:
     f_cinco = "/eos/project-c/cmsweb/www/icmssecr/cms-info/cinco.json"
 
-    f = open(f_cinco.replace(".json", "_raw.json"), "r")
     try:
-        db_cinco = json.load(f)
-    except json.decoder.JSONDecodeError as e:
-        print( f'ERROR when trying to read json from cinco - got: {str(e)} ' )
-        [ print( f'{x}' ) for x in f.readlines()[:5] ]
-    f.close()
+        f = open(f_cinco.replace(".json", "_raw.json"), "r")
+        try:
+            db_cinco = json.load(f)
+        except json.decoder.JSONDecodeError as e:
+            print( f'ERROR when trying to read json from cinco - got: {str(e)} ' )
+            f.seek(0)
+            [ print( f'{x}' ) for x in f.readlines()[:5] ]
+            raise
+        finally:
+            f.close()
 
-    new_cinco = []
-    for entry in db_cinco["JConference"]:
-        if entry["ShortName"]=="":
-            entry["ShortName"] = entry["Name"]
-        if year in entry["Date"]:
-            entry["Date"] = entry["Date"].replace(year,"").strip()
-        if "virtual" in entry["Location"] or "Virtual" in entry["Location"]:
-            entry["Location"] = "Virtual"
-        if "SCHOOL" in entry["Category"]:
-            continue
-        if entry["CategoryDescription"]=="CERN seminars":
-            continue
-        if len(db_cinco)>10:
-            if entry["Category"] in ["NATCONF", "SMALLCON"]:
+        new_cinco = []
+        for entry in db_cinco["JConference"]:
+            if entry["ShortName"]=="":
+                entry["ShortName"] = entry["Name"]
+            if year in entry["Date"]:
+                entry["Date"] = entry["Date"].replace(year,"").strip()
+            if "virtual" in entry["Location"] or "Virtual" in entry["Location"]:
+                entry["Location"] = "Virtual"
+            if "SCHOOL" in entry["Category"]:
                 continue
-        if len(new_cinco)>5: continue
-        new_cinco.append(entry)
+            if entry["CategoryDescription"]=="CERN seminars":
+                continue
+            if len(db_cinco)>10:
+                if entry["Category"] in ["NATCONF", "SMALLCON"]:
+                    continue
+            if len(new_cinco)>5: continue
+            new_cinco.append(entry)
 
-    f = open(f_cinco, "w")
-    json.dump(new_cinco, f)
-    f.close()
+        f = open(f_cinco, "w")
+        json.dump(new_cinco, f)
+        f.close()
+    except Exception as e:
+        print( f'ERROR when cleaning up cinco, leaving the old file - got: {str(e)} ' )
 
 # Clean up nominations
 # Each source is handled on its own so that one dead endpoint leaves the other
