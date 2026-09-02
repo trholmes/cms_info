@@ -137,6 +137,10 @@ What it has found on the membership API so far, all on the `cms-membership-api-p
 | `docs` | a Swagger UI page, pointing at the spec below |
 | `Membership-API.v1.yaml` | the OpenAPI spec - the authoritative endpoint list |
 
+Paging is by **`limit`**, which is the only parameter of `page`, `pageSize`, `limit`, `offset`, `rows` and `size` that has any effect - the others are silently ignored, so a request without `limit` quietly returns the first 50 of however many `numberOfResults` reports (1164 for a year of appointments). Any switched-over call needs an explicit `limit`, or it will fetch a fraction of the data and look like it worked.
+
+Results include expired appointments: the date filter in `queryString` does not exclude them, and each record carries `status` of `Active` or `Inactive`. Filter on that.
+
 `<resource>/search` is the convention, and responses are **wrapped**: `{"results": [...], "numberOfResults": N}` rather than the bare array the old iCMS endpoints returned. `cleanup.py` reads the top level directly, so anything switched over needs `db["results"]` as well as the field renames. `/membership/api/` itself answers 500, and `appointments`, `categories` and `working-groups` without `/search` are 404, so the search form is the way in.
 
 A 404 means no such route, while a 500 means the route exists and the request

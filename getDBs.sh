@@ -29,7 +29,10 @@ python3 ./getDB.py 'https://icms.cern.ch/tools-api/restplus/org_chart/job_openin
 # Tenures -> the Membership appointments search (audience cms-membership-api-prod).
 # This one works; the records have different field names from the old endpoint,
 # so cleanup.py needs adjusting before switching over:
-#python3 getTokenDB.py 'https://cmsfence.cern.ch/membership/api/appointments/search' -d 'queryString="startDate" <= "'$datestr'" AND "endDate" >= "'$datestr'"' -o ${loc}tenures_raw.json --expect-json
+# The limit matters: without it the API returns only the first 50 of ~1200,
+# and "page"/"offset"/"pageSize" are ignored. Records include expired
+# appointments, which have status "Inactive".
+#python3 getTokenDB.py 'https://cmsfence.cern.ch/membership/api/appointments/search' -d 'queryString="startDate" <= "'$datestr'" AND "endDate" >= "'$datestr'"' -d 'limit=5000' -o ${loc}tenures_raw.json --expect-json
 #
 # Job openings -> /incubator/api/job_openings. Not usable yet: Glance still has
 # configuration work to finish, and its audience is not known either.
