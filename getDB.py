@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 
+import datetime as dt
 import sys
 import subprocess
 from urllib.parse import urlparse
 
 url = sys.argv[1]
 args = sys.argv[2:]
+
+logInfo = [ f"Starting at: {dt.datetime.now().isoformat(timespec='minutes')}" ]
 
 res = urlparse( url )
 urlAuth = f'{res.scheme}://{res.netloc}'
@@ -22,7 +25,7 @@ if args: curlArgs = ' '.join(args).split('|',1)[0]
 #cmd += 'curl --silent --cookie-jar ~/private/cadiana.sso --cookie ~/private/cadiana.sso -k -L %s ' % (url,)
 
 # these are for the new SSO:
-cookieFileName = '~/private/sso-auth-cookie-cms_info'
+cookieFileName = '~/private/sso-auth-cookie-cms_info-0'
 cmd = f'rm -f {cookieFileName};'
 cmd += f'auth-get-sso-cookie --outfile {cookieFileName} -u \'{urlAuth}\';'
 cmd += f'curl --silent -b  {cookieFileName} -k -L \'{url}\';'
@@ -31,12 +34,18 @@ cmd += f'curl --silent -b  {cookieFileName} -k -L \'{url}\';'
 if curlArgs != '':
    cmd = '%s %s' % (cmd, curlArgs )
 
-# print ( 'cmd: %s ' % (cmd.replace(';', '\n'),) )
+logInfo.append( 'cmd: %s ' % (cmd.replace(';', '\n'),) )
 
 res=''
 try:
     res = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
-    print( res.decode('utf-8') )
+    logInfo.append( "cmd returned:")
+    logInfo.append( f"{res.decode('utf-8')}")
 except Exception as e:
-    print ( "ERROR: got: %s" % (str(e),) )
-    print ( "    output: %s " % (str(res)) )
+    logInfo.append( "ERROR: got: %s" % (str(e),) )
+    logInfo.append( "    output: %s " % (str(res)) )
+
+
+logFileName = '/afs/cern.ch/user/c/cmswww/cms_info/logs/logInfo.txt'
+with open(logFileName, 'w') as lf:
+   lf.write( '\n'.join(logInfo) )
