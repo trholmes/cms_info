@@ -143,6 +143,8 @@ The CADI XEB report moved to the ALCM API ([CMSGLANCE-422](https://its.cern.ch/j
 
 The query parameter is `period` in days, replacing the old `xeb_report_period`; `getDBs.sh` asks for 14 as before.
 
+The records carry two fields beyond the schema in the ticket: `old_status` (the status an analysis moved from, e.g. `Ready for CWR`) and `cds_record`, the CDS record id, which gives a link target of `https://cds.cern.ch/record/<cds_record>`. There is no `url` field, which the old endpoint provided.
+
 ### Finding out what else is available
 
 `probeGlance.py` tries a list of candidate Glance URLs and reports which answer, which refuse us and which do not exist. It is a migration aid rather than part of the nightly run, useful for checking what Glance has switched on as they work through the remaining endpoints:
