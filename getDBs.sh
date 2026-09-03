@@ -37,7 +37,10 @@ python3 getTokenDB.py 'https://cmsfence.cern.ch/membership/api/institutes/search
 # nominations.json keeps whatever it last had.
 #python3 getTokenDB.py 'https://cmsfence.cern.ch/incubator/api/job_openings' -o ${loc}nominations_raw.json --expect-json
 
-# No replacement announced at all yet for the CADI xeb_report endpoint.
+# CADI xeb_report -> the ALCM analysis xeb-report (audience cms-alcm-api-prod).
+# "period" replaces the old "xeb_report_period", and the reports come wrapped
+# in a {"period": N, "reports": {...}} object which cleanup.py unwraps.
+python3 getTokenDB.py 'https://cmsfence.cern.ch/alcm/api/analysis/xeb-report' -d 'period=14' -o ${loc}cadi_raw.json --expect-json
 
 # CINCO is now on the new SSO with a fix for the SSO to allow scripts to go through instead of choking on some "javascript not enabled" URL in the sequence
 

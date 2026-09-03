@@ -78,6 +78,7 @@ AUDIENCES = {
     # glance-api-access-client, which is what permits the call, but a token
     # addressed to that gets refused. The two are separate things.
     'cmsfence.cern.ch/membership/': 'cms-membership-api-prod',
+    'cmsfence.cern.ch/alcm/': 'cms-alcm-api-prod',
     # Different APIs on the same host need different audiences, so keys may be
     # a host or a host and path prefix; the longest match wins.
     # /incubator/ (job openings) is not in service yet and its audience is

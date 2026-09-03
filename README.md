@@ -103,7 +103,7 @@ The iCMS `tools-api` endpoints are being replaced by Glance APIs on `cmsfence.ce
 | --- | --- | --- | --- |
 | `tools-api/restplus/org_chart/tenures` | `cmsfence.cern.ch/membership/api/appointments/search` | `cms-membership-api-prod` | **switched over** |
 | `tools-api/restplus/org_chart/job_openings` | `cmsfence.cern.ch/incubator/api/job_openings` | not known yet | Glance still has configuration and development work to finish |
-| `tools-api/restplus/cadi/xeb_report` | not yet announced | - | - |
+| `tools-api/restplus/cadi/xeb_report` | `cmsfence.cern.ch/alcm/api/analysis/xeb-report` | `cms-alcm-api-prod` | **switched over** |
 
 Each API has its own audience, so the `audiences` map is keyed by host **and path prefix**, longest match first. Ask Glance for the audience of each endpoint as it becomes available - it is not discoverable from the outside, and a wrong one produces a token that is issued and then refused.
 
@@ -133,6 +133,15 @@ Two things the old endpoint provided are simply gone, and no parsing recovers th
 Also note the records include appointments that have expired, marked `status: "Inactive"`, which the old endpoint excluded; `cleanup.py` keeps only the active ones.
 
 Each source is handled independently, so a dead endpoint no longer stops the whole script: a section that cannot rebuild its `.json` reports the reason and leaves the previous file in place. This matters while two of the four sources have no replacement - before, a missing nominations file stopped the run before tenures or the board pages were reached.
+
+### The ALCM xeb-report records
+
+The CADI XEB report moved to the ALCM API ([CMSGLANCE-422](https://its.cern.ch/jira/browse/CMSGLANCE-422)), on its own audience `cms-alcm-api-prod`. Two differences from the old endpoint, both handled in `cleanup.py`:
+
+* The categories arrive wrapped as `{"period": N, "reports": {"CWR": [...], "SUB": [...], "ACCEPT": [...]}}`, so the `reports` object is unwrapped before use.
+* Dates come as `2026-08-25` rather than `25/08/2026`. Both spellings are accepted and reformatted for display.
+
+The query parameter is `period` in days, replacing the old `xeb_report_period`; `getDBs.sh` asks for 14 as before.
 
 ### Finding out what else is available
 

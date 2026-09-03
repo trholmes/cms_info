@@ -231,11 +231,20 @@ try:
     db_cadi = json.load(f)
     f.close()
 
+    # The ALCM endpoint replaced the old cadi/xeb_report and wraps the
+    # categories in a {"period": N, "reports": {...}} object
+    if isinstance(db_cadi, dict) and "reports" in db_cadi:
+        db_cadi = db_cadi["reports"]
+
     for cat in db_cadi:
         try:
             for entry in db_cadi[cat]:
+                # the old endpoint gave 25/08/2026, the new one 2026-08-25
                 if len(entry["day"].split("/"))==3:
                     edate = datetime.datetime.strptime(entry["day"], '%d/%m/%Y')
+                    entry["day"] = edate.strftime("%d %b")
+                elif len(entry["day"].split("-"))==3:
+                    edate = datetime.datetime.strptime(entry["day"], '%Y-%m-%d')
                     entry["day"] = edate.strftime("%d %b")
         except:
             continue
