@@ -36,11 +36,13 @@ Credentials are read from, in order of precedence:
 
         {
             "client_id": "cms-info-scraper",
-            "client_secret": "00000000-0000-0000-0000-000000000000",
-            "audiences": {
-                "cmsfence.cern.ch/membership/": "cms-membership-api-prod"
-            }
+            "client_secret": "00000000-0000-0000-0000-000000000000"
         }
+
+    The secret is all the file needs. It also accepts an "audiences" block,
+    but an entry there shadows AUDIENCES below for that host, so a value that
+    later proves wrong keeps being used and the only symptom is a 401. Add one
+    only for a host AUDIENCES does not cover, and use --audience for a one-off.
 
     Create it with restrictive permissions:
         touch cms_info_sso.json

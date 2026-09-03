@@ -25,7 +25,7 @@ Because no Kerberos ticket is involved, this does not depend on a valid TGT in t
 ### Two things to know
 
 * **The `audience` is the API's own Client ID.** Not ours, and - the subtle part - not the application whose e-group grants us access either. `cms-info-scraper` is a member of `glance-api-access-client`, which is what *permits* the call, but a token addressed to that is refused; the membership API wants `cms-membership-api-prod`. Permission and audience are separate things, and the audience has to be asked of each API's owners. A token for the wrong audience is issued quite happily and then rejected.
-* **The token identifies a service account, not a person.** Its `sub` claim is `service-account-cms-info-scraper`, so being logged in on lxplus grants it nothing. The target application must have granted that account access - its owners map a role to an e-group our client belongs to. When an API refuses a token, read the code carefully: a `403` is that missing permission, while a `401` is almost always the wrong audience.
+* **The token identifies a service account, not a person.** Its `sub` claim is `service-account-cms-info-scraper`, so being logged in on lxplus grants it nothing. The target application must have granted that account access - its owners map a role to an e-group our client belongs to. When an API refuses a token, read the code carefully: a `403` is that missing permission, while a `401` is usually about the token rather than the identity - see below.
 
 ### Setup
 
@@ -41,14 +41,11 @@ That file sits in the working directory, which is this git repository, so both i
 ```json
 {
     "client_id": "cms-info-scraper",
-    "client_secret": "the-secret-from-the-application-portal",
-    "audiences": {
-        "cmsfence.cern.ch/membership/": "cms-membership-api-prod"
-    }
+    "client_secret": "the-secret-from-the-application-portal"
 }
 ```
 
-`CERN_CLIENT_ID`, `CERN_CLIENT_SECRET` and `CERN_API_AUDIENCE` work as environment overrides if that suits the cron setup better.
+The secret is all this file needs. It also accepts an `audiences` block, but do not put one there for a host the script already knows: an entry in the file shadows the built-in map for that host, so a value that later turns out to be wrong keeps being used and the only symptom is a `401`. Use it for a host the script has no audience for yet, and prefer `--audience` for a one-off. `CERN_CLIENT_ID`, `CERN_CLIENT_SECRET` and `CERN_API_AUDIENCE` work as environment overrides if that suits the cron setup better - and `CERN_API_AUDIENCE` overrides every host at once, so keep it out of the cron environment.
 
 ### Checking that it works
 
