@@ -1,0 +1,7 @@
+# Client secret and cached tokens now live in the working directory, which is
+# this repository - keep them out of git.
+cms_info_sso.json
+.cms_info_token_cache.json
+
+__pycache__/
+*.pyc

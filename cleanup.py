@@ -25,6 +25,129 @@ def getPrimaryRole(entry, full_db):
             return val
     return "Member"
 
+# The Glance appointments API replaced the old org_chart/tenures endpoint. Its
+# records cover the same appointments, but the unit somebody was appointed to
+# is only there as prose in categoryName, of the form
+# "<position> of <unit> <unit type>", so the fields the board pages below are
+# built from have to be parsed back out of it.
+appointmentUnitTypes = ["Coordination Area", "Editorial Board", "Funding Agency",
+                        "Subdetector", "Committee", "Institute", "Region",
+                        "Board", "Office", "Advisors"]
+
+# Which parsed unit belongs to which of the domains the board pages use.
+# Anything not listed here has no page and is left out of them.
+appointmentDomains = {
+        "Management": "Management",
+        "Collaboration": "Collaboration",
+        "Finance": "Finance",
+        "Authorship": "Authorship",
+        "Career": "Career",
+        "Conference": "Conference",
+        "Publications": "Publications",
+        "Schools": "Schools",
+        "Communication": "Communication",
+        "External Communication": "Communication",
+        "Internal Communication": "Communication",
+        "Diversity": "Diversity",
+        "Engagement": "Engagement",
+        "Offline & Computing": "Offline & Computing",
+        "Physics Performance & Datasets": "Physics Performance & Datasets",
+        "Physics": "Physics",
+        "Run": "Run",
+        "Trigger": "Trigger",
+        "Technical": "Technical",
+        "Upgrade": "Upgrade",
+        "Spokesperson": "Spokesperson",
+        "Spokesperson & Technical Coordination": "Spokesperson",
+        }
+
+# Rough ordering within a page, standing in for the position_level the old
+# endpoint gave us and this one does not.
+appointmentPositionLevels = {
+        "Spokesperson": 0,
+        "Chairperson": 1,
+        "Coordinator": 1,
+        "Manager": 1,
+        "Deputy Coordinator": 2,
+        "Deputy": 2,
+        "Secretary": 2,
+        "Advisor": 3,
+        "Member": 4,
+        }
+
+# Split a categoryName into its position, unit and unit type
+def parseCategoryName(name):
+    for unit_type in appointmentUnitTypes:
+        suffix = " %s"%unit_type
+        if name.endswith(suffix) and " of " in name:
+            position, unit = name[:-len(suffix)].split(" of ", 1)
+            return position, unit, unit_type
+    # e.g. "Chairperson of External Communication", with no unit type
+    if " of " in name:
+        position, unit = name.split(" of ", 1)
+        return position, unit, "Committee"
+    # e.g. "Team Leader", "TRG working group convenor" - no unit, so no page
+    return name, None, None
+
+# The appointments API gives a single memberName, while the page templates
+# want first_name and last_name separately
+def splitMemberName(name):
+    if not name: return "", ""
+    if "," in name:                             # "Malawski, Maciej"
+        last, _, first = name.partition(",")
+        return first.strip(), last.strip()
+    parts = name.split()                        # "Maciej Malawski"
+    return parts[0], " ".join(parts[1:])
+
+# The appointments records carry an institute name and id but not the short
+# code the pages display, so it is looked up from the institutes endpoint.
+# The field holding the code is not documented, so take the first plausible
+# one that is present.
+def loadInstituteCodes(path):
+    codes = {}
+    try:
+        f = open(path, "r")
+        db = json.load(f)
+        f.close()
+        if isinstance(db, dict) and "results" in db: db = db["results"]
+        for entry in db:
+            key = entry.get("id") or entry.get("instituteId")
+            for field in ["code", "instituteCode", "shortName", "short_name",
+                          "CODE", "acronym", "instituteAcronym"]:
+                if entry.get(field):
+                    codes[str(key)] = entry[field]
+                    break
+    except Exception as e:
+        print( f'ERROR when reading institute codes, pages will show the full name - got: {str(e)} ' )
+    return codes
+
+institute_codes = loadInstituteCodes("/eos/project-c/cmsweb/www/icmssecr/cms-info/institutes_raw.json")
+
+# Turn an appointments record into the shape the rest of this script expects
+def appointmentToTenure(entry):
+    position, unit, unit_type = parseCategoryName(entry.get("categoryName") or "")
+    tenure = dict(entry)
+    tenure["position"] = position
+    tenure["domain"] = appointmentDomains.get(unit)
+    tenure["src_unit_type"] = unit_type
+    # The new records carry no ex-officio information, so nobody is grouped as
+    # an ex-officio member any more and getPrimaryRole is not reached.
+    tenure["ex_officio_rule_id"] = None
+    tenure["position_level"] = appointmentPositionLevels.get(position, 5)
+    tenure["src_position_level"] = tenure["position_level"]
+    tenure["cms_id"] = entry.get("memberId")
+    tenure["unit_id"] = entry.get("categoryId")
+    tenure["src_unit_id"] = entry.get("categoryId")
+    # the names the page templates read
+    tenure["name"] = entry.get("memberName")
+    tenure["first_name"], tenure["last_name"] = splitMemberName(entry.get("memberName"))
+    tenure["institute"] = entry.get("instituteName")
+    tenure["inst_code"] = institute_codes.get(str(entry.get("instituteId")),
+                                              entry.get("instituteName"))
+    tenure["start_date"] = entry.get("startDateString")
+    tenure["end_date"] = entry.get("endDateString")
+    return tenure
+
 # Clean up CINCO results
 today = datetime.date.today()
 year = str(today.year)
@@ -32,110 +155,146 @@ year = str(today.year)
 if do_cinco:
     f_cinco = "/eos/project-c/cmsweb/www/icmssecr/cms-info/cinco.json"
 
-    f = open(f_cinco.replace(".json", "_raw.json"), "r")
     try:
-        db_cinco = json.load(f)
-    except json.decoder.JSONDecodeError as e:
-        print( f'ERROR when trying to read json from cinco - got: {str(e)} ' )
-        [ print( f'{x}' ) for x in f.readlines()[:5] ]
-    f.close()
+        f = open(f_cinco.replace(".json", "_raw.json"), "r")
+        try:
+            db_cinco = json.load(f)
+        except json.decoder.JSONDecodeError as e:
+            print( f'ERROR when trying to read json from cinco - got: {str(e)} ' )
+            f.seek(0)
+            [ print( f'{x}' ) for x in f.readlines()[:5] ]
+            raise
+        finally:
+            f.close()
 
-    new_cinco = []
-    for entry in db_cinco["JConference"]:
-        if entry["ShortName"]=="":
-            entry["ShortName"] = entry["Name"]
-        if year in entry["Date"]:
-            entry["Date"] = entry["Date"].replace(year,"").strip()
-        if "virtual" in entry["Location"] or "Virtual" in entry["Location"]:
-            entry["Location"] = "Virtual"
-        if "SCHOOL" in entry["Category"]:
-            continue
-        if entry["CategoryDescription"]=="CERN seminars":
-            continue
-        if len(db_cinco)>10:
-            if entry["Category"] in ["NATCONF", "SMALLCON"]:
+        new_cinco = []
+        for entry in db_cinco["JConference"]:
+            if entry["ShortName"]=="":
+                entry["ShortName"] = entry["Name"]
+            if year in entry["Date"]:
+                entry["Date"] = entry["Date"].replace(year,"").strip()
+            if "virtual" in entry["Location"] or "Virtual" in entry["Location"]:
+                entry["Location"] = "Virtual"
+            if "SCHOOL" in entry["Category"]:
                 continue
-        if len(new_cinco)>5: continue
-        new_cinco.append(entry)
+            if entry["CategoryDescription"]=="CERN seminars":
+                continue
+            if len(db_cinco)>10:
+                if entry["Category"] in ["NATCONF", "SMALLCON"]:
+                    continue
+            if len(new_cinco)>5: continue
+            new_cinco.append(entry)
 
-    f = open(f_cinco, "w")
-    json.dump(new_cinco, f)
-    f.close()
+        f = open(f_cinco, "w")
+        json.dump(new_cinco, f)
+        f.close()
+    except Exception as e:
+        print( f'ERROR when cleaning up cinco, leaving the old file - got: {str(e)} ' )
 
 # Clean up nominations
+# Each source is handled on its own so that one dead endpoint leaves the other
+# pages alone instead of stopping the script: the .json a section cannot
+# rebuild keeps whatever it had from the last good run.
 f_nominations = "/eos/project-c/cmsweb/www/icmssecr/cms-info/nominations.json"
-f = open(f_nominations.replace(".json", "_raw.json"), "r")
-db_nominations = json.load(f)
-f.close()
+try:
+    f = open(f_nominations.replace(".json", "_raw.json"), "r")
+    db_nominations = json.load(f)
+    f.close()
 
-new_nominations = []
-for entry in db_nominations:
-    deadline = date_object = datetime.datetime.strptime(entry['nominations_deadline'], "%Y-%m-%d")
-    entry["due_date"] = deadline.strftime("%b %d")
-    if (deadline.date() - today).days > -14 and entry['status'] == 'active':
-        new_nominations.append(entry)
-f = open(f_nominations, "w")
-json.dump(new_nominations, f)
-f.close()
+    new_nominations = []
+    for entry in db_nominations:
+        deadline = date_object = datetime.datetime.strptime(entry['nominations_deadline'], "%Y-%m-%d")
+        entry["due_date"] = deadline.strftime("%b %d")
+        # The Glance job openings endpoint renames this field, so take either
+        status = entry.get('job_open_position_status', entry.get('status'))
+        if (deadline.date() - today).days > -14 and status == 'active':
+            new_nominations.append(entry)
+    f = open(f_nominations, "w")
+    json.dump(new_nominations, f)
+    f.close()
+except Exception as e:
+    print( f'ERROR when cleaning up nominations, leaving the old file - got: {str(e)} ' )
 
 # Clean up CADI results
 f_cadi = "/eos/project-c/cmsweb/www/icmssecr/cms-info/cadi.json"
 
-with open(f_cadi.replace(".json", "_raw.json"), "r") as f:
-    cadi_lines = f.readlines()
-with open(f_cadi, "w") as f:
-    for line in cadi_lines:
-        if line.startswith("WARNING"): continue
-        if line.startswith("ERROR"): continue
-        f.write(line)
+try:
+    with open(f_cadi.replace(".json", "_raw.json"), "r") as f:
+        cadi_lines = f.readlines()
+    with open(f_cadi, "w") as f:
+        for line in cadi_lines:
+            if line.startswith("WARNING"): continue
+            if line.startswith("ERROR"): continue
+            f.write(line)
 
-f = open(f_cadi, "r", encoding='utf-8')
-db_cadi = json.load(f)
-f.close()
+    f = open(f_cadi, "r", encoding='utf-8')
+    db_cadi = json.load(f)
+    f.close()
 
-for cat in db_cadi:
-    try:
-        for entry in db_cadi[cat]:
-            if len(entry["day"].split("/"))==3:
-                edate = datetime.datetime.strptime(entry["day"], '%d/%m/%Y')
-                entry["day"] = edate.strftime("%d %b")
-    except:
-        continue
-if "SUB" not in db_cadi:
-    db_cadi["SUB"]=[{"code": "None", "url": "https://cms.cern.ch/iCMS/analysisadmin/cadilines"}]
-if "CWR" not in db_cadi:
-    db_cadi["CWR"]=[{"code": "None", "url": "https://cms.cern.ch/iCMS/analysisadmin/cadilines"}]
+    # The ALCM endpoint replaced the old cadi/xeb_report and wraps the
+    # categories in a {"period": N, "reports": {...}} object
+    if isinstance(db_cadi, dict) and "reports" in db_cadi:
+        db_cadi = db_cadi["reports"]
 
-f = open(f_cadi, "w")
-json.dump(db_cadi, f)
-f.close()
+    for cat in db_cadi:
+        try:
+            for entry in db_cadi[cat]:
+                # the old endpoint gave 25/08/2026, the new one 2026-08-25
+                if len(entry["day"].split("/"))==3:
+                    edate = datetime.datetime.strptime(entry["day"], '%d/%m/%Y')
+                    entry["day"] = edate.strftime("%d %b")
+                elif len(entry["day"].split("-"))==3:
+                    edate = datetime.datetime.strptime(entry["day"], '%Y-%m-%d')
+                    entry["day"] = edate.strftime("%d %b")
+        except:
+            continue
+    if "SUB" not in db_cadi:
+        db_cadi["SUB"]=[{"code": "None", "url": "https://cms.cern.ch/iCMS/analysisadmin/cadilines"}]
+    if "CWR" not in db_cadi:
+        db_cadi["CWR"]=[{"code": "None", "url": "https://cms.cern.ch/iCMS/analysisadmin/cadilines"}]
+
+    f = open(f_cadi, "w")
+    json.dump(db_cadi, f)
+    f.close()
+except Exception as e:
+    print( f'ERROR when cleaning up cadi, leaving the old file - got: {str(e)} ' )
 
 # Clean up tenures results
 f_tenures = "/eos/project-c/cmsweb/www/icmssecr/cms-info/tenures.json"
 
-with open(f_tenures.replace(".json", "_raw.json"), "r") as f:
-    tenures_lines = f.readlines()
-with open(f_tenures, "w") as f:
-    for line in tenures_lines:
-        if line.startswith("ERROR"): continue
-        if line.startswith("WARNING"): continue
-        f.write(line)
+db_tenures_sorted = []
+try:
+    with open(f_tenures.replace(".json", "_raw.json"), "r") as f:
+        tenures_lines = f.readlines()
+    with open(f_tenures, "w") as f:
+        for line in tenures_lines:
+            if line.startswith("ERROR"): continue
+            if line.startswith("WARNING"): continue
+            f.write(line)
 
-f = open(f_tenures, "r", encoding='utf-8')
-db_tenures = json.load(f)
-f.close()
+    f = open(f_tenures, "r", encoding='utf-8')
+    db_tenures = json.load(f)
+    f.close()
 
-for entry in db_tenures:
-    if entry["src_position_level"]==None: entry["src_position_level"]=4
-    if entry["position_level"]==None: entry["position_level"]=4
+    # The appointments API wraps its records in "results" and includes ones
+    # that have expired, which the old endpoint did not.
+    if isinstance(db_tenures, dict) and "results" in db_tenures:
+        db_tenures = [ appointmentToTenure(entry) for entry in db_tenures["results"]
+                       if entry.get("status") == "Active" ]
 
-db_tenures_sorted = sorted(db_tenures, key=lambda item: item["position_level"])
-#db_tenures_sorted = sorted(db_tenures, key=lambda item: item["src_position_level"])
-db_tenures_management = list(filter(lambda item: (item["domain"]=="Management"), db_tenures_sorted))
+    for entry in db_tenures:
+        if entry["src_position_level"]==None: entry["src_position_level"]=4
+        if entry["position_level"]==None: entry["position_level"]=4
 
-f = open(f_tenures, "w")
-json.dump(db_tenures_management, f)
-f.close()
+    db_tenures_sorted = sorted(db_tenures, key=lambda item: item["position_level"])
+    #db_tenures_sorted = sorted(db_tenures, key=lambda item: item["src_position_level"])
+    db_tenures_management = list(filter(lambda item: (item["domain"]=="Management"), db_tenures_sorted))
+
+    f = open(f_tenures, "w")
+    json.dump(db_tenures_management, f)
+    f.close()
+except Exception as e:
+    print( f'ERROR when cleaning up tenures, leaving the old files - got: {str(e)} ' )
 
 
 # Make separate pages for board memberships so I can sort them nicely
@@ -164,6 +323,7 @@ boards = {
         }
 collapse = ["eb", "mb", "cc", "ic", "sc", "co", "do", "eo", "oa", "pa", "ra", "ta", "tea", "ua"] # For these we won't actually display different sources
 for b in boards:
+    if not db_tenures_sorted: continue # tenures unreadable, leave the pages alone
     f = "/eos/project-c/cmsweb/www/icmssecr/cms-info/%s.json"%b
     db = OrderedDict()
     # Some little custom ordering (forcing these first)
