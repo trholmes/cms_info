@@ -43,11 +43,14 @@ python3 getTokenDB.py 'https://cmsfence.cern.ch/alcm/api/analysis/xeb-report' -d
 
 # CINCO is now on the new SSO with a fix for the SSO to allow scripts to go through instead of choking on some "javascript not enabled" URL in the sequence
 
-# for now, use the tool with Sebastian's workaround:
-cd auth-get-sso-cookie
-. ./activate.sh
-cd ..
-python3 ./getDB.py 'https://cms-mgt-conferences.web.cern.ch/conferences/conferences_list_short.aspx' > ${loc}cinco_raw.json 
+## # for now, use the tool with Sebastian's workaround:
+## cd auth-get-sso-cookie
+## . ./activate.sh
+## cd ..
+## python3 ./getDB.py 'https://cms-mgt-conferences.web.cern.ch/conferences/conferences_list_short.aspx' > ${loc}cinco_raw.json
+
+##-ap: try the new getTokenDB.py also for cinco:
+python3 ./getTokenDB.py 'https://cms-mgt-conferences.web.cern.ch/conferences/conferences_list_short.aspx' -o ${loc}cinco_raw.json --expect-json
 
 python3 ./cleanup.py
 python3 ./getCalendar.py
