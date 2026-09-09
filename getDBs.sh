@@ -32,10 +32,9 @@ python3 getTokenDB.py 'https://cmsfence.cern.ch/membership/api/appointments/sear
 # which the pages display, so fetch the institutes to look the codes up.
 python3 getTokenDB.py 'https://cmsfence.cern.ch/membership/api/institutes/search' -d 'limit=5000' -o ${loc}institutes_raw.json --expect-json
 
-# Job openings -> /incubator/api/job_openings, not in service yet: Glance
-# still has configuration work to finish and its audience is not known, so
-# nominations.json keeps whatever it last had.
-#python3 getTokenDB.py 'https://cmsfence.cern.ch/incubator/api/job_openings' -o ${loc}nominations_raw.json --expect-json
+# Job openings -> the incubator API. Its audience is vocms0705, not the
+# cms-*-api-prod the other two use. Note the trailing slash on the path.
+python3 getTokenDB.py 'https://cmsfence.cern.ch/incubator/api/job_openings/' -o ${loc}nominations_raw.json --expect-json
 
 # CADI xeb_report -> the ALCM analysis xeb-report (audience cms-alcm-api-prod).
 # "period" replaces the old "xeb_report_period", and the reports come wrapped

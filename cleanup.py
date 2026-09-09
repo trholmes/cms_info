@@ -201,6 +201,13 @@ try:
     db_nominations = json.load(f)
     f.close()
 
+    # the Glance APIs wrap their records, each under its own key
+    if isinstance(db_nominations, dict):
+        for key in ["results", "job_openings", "data"]:
+            if key in db_nominations:
+                db_nominations = db_nominations[key]
+                break
+
     new_nominations = []
     for entry in db_nominations:
         deadline = date_object = datetime.datetime.strptime(entry['nominations_deadline'], "%Y-%m-%d")

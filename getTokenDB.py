@@ -81,10 +81,12 @@ AUDIENCES = {
     # addressed to that gets refused. The two are separate things.
     'cmsfence.cern.ch/membership/': 'cms-membership-api-prod',
     'cmsfence.cern.ch/alcm/': 'cms-alcm-api-prod',
+    # Not a typo and not the cms-*-api-prod pattern: the incubator API
+    # validates against vocms0705, the client the host logs browsers in with.
+    # Confirmed by Glance. Do not assume the pattern for a new endpoint - ask.
+    'cmsfence.cern.ch/incubator/': 'vocms0705',
     # Different APIs on the same host need different audiences, so keys may be
     # a host or a host and path prefix; the longest match wins.
-    # /incubator/ (job openings) is not in service yet and its audience is
-    # not known - ask Glance for it when they announce the endpoint.
 }
 
 # Tokens are short lived; renew this many seconds before the stated expiry.

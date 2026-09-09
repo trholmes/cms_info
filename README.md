@@ -88,10 +88,12 @@ The iCMS `tools-api` endpoints are being replaced by Glance APIs on `cmsfence.ce
 | old iCMS endpoint | replacement | audience | state |
 | --- | --- | --- | --- |
 | `tools-api/restplus/org_chart/tenures` | `cmsfence.cern.ch/membership/api/appointments/search` | `cms-membership-api-prod` | **switched over** |
-| `tools-api/restplus/org_chart/job_openings` | `cmsfence.cern.ch/incubator/api/job_openings` | not known yet | Glance still has configuration and development work to finish |
+| `tools-api/restplus/org_chart/job_openings` | `cmsfence.cern.ch/incubator/api/job_openings/` | `vocms0705` | **switched over** |
 | `tools-api/restplus/cadi/xeb_report` | `cmsfence.cern.ch/alcm/api/analysis/xeb-report` | `cms-alcm-api-prod` | **switched over** |
 
-Each API has its own audience, so the `audiences` map is keyed by host **and path prefix**, longest match first. Ask Glance for the audience of each endpoint as it becomes available - it is not discoverable from the outside, and a wrong one produces a token that is issued and then refused.
+Each API has its own audience, so the `audiences` map is keyed by host **and path prefix**, longest match first. Ask Glance for the audience of each endpoint - it is not discoverable from the outside, and a wrong one produces a token that is issued and then refused.
+
+Do not infer it from the others: two of the three follow a `cms-<service>-api-prod` pattern, but the incubator API validates against `vocms0705`, the client `cmsfence.cern.ch` logs browsers in with. Nothing about a URL predicts its audience.
 
 The appointments search takes its filter as a url-encoded `queryString` parameter, which is what `-d/--param` is for:
 
@@ -195,11 +197,15 @@ curl -sS -o /dev/null -w '%{http_code}\n' \
 
 `400` with `Client not found` in the body means no such application; a login page means it exists.
 
-### What is still missing
+### What the new APIs do not carry
 
-* **Job openings.** `/incubator/api/job_openings` is not in service - Glance are working on its authentication configuration - and its audience is not known. `nominations.json` keeps its last contents meanwhile.
-* **Ex-officio membership.** The Management and Executive Board pages were built from the old endpoint's `ex_officio_rule_id`: those boards are composed largely of people who sit on them by virtue of another role. The appointments records carry no ex-officio information (no such field, and the only Management Board rows are its advisors), so the Management Board page shows only advisors and the Executive Board and International Committee pages are empty. Whether that composition is available elsewhere in Glance is an open question for its owners.
-* **`position_level`.** Ordering within a page now comes from `appointmentPositionLevels` rather than from the database.
+* **Ex-officio membership.** The Management and Executive Board pages were built from the old endpoint's `ex_officio_rule_id`: those boards are composed largely of people who sit on them by virtue of another role. Glance have confirmed this was a deprecated feature of the old system, whose dates did not reflect members' actual terms, and it is deliberately not part of the new one. So the Management Board page shows only its advisors, and the Executive Board and International Committee pages are empty. Restoring them means either getting the composition from somewhere else or writing the rule into `cleanup.py` - which would mean hard-coding CMS governance into a scraping script, and is worth a conversation with whoever owns those pages first.
+* **`position_level`.** Ordering within a page now comes from `appointmentPositionLevels`, keyed on the parsed position, rather than from the database.
+* **A `url` per CADI analysis.** The old records had one. The ALCM records carry `cds_record` instead, which gives `https://cds.cern.ch/record/<cds_record>` if a link is wanted.
+
+### CINCO
+
+The conference list is not a Glance API and was not part of this migration: it is an ASP.NET page on `cms-mgt-conferences.web.cern.ch`, still read with `getDB.py` and an SSO cookie. Bolek Wyslouch (wyslouch@mit.edu) looks after it.
 
 ## Keeping the client secret safe
 
