@@ -14,10 +14,8 @@ loc=/eos/project-c/cmsweb/www/icmssecr/cms-info/
 
 cd /afs/cern.ch/user/c/cmswww/cms_info
 
-# try also to use this one here, as sometimes the standard one seems to fail to load:
-cd auth-get-sso-cookie
-. ./activate.sh
-cd ..
+# Nothing below needs auth-get-sso-cookie any more - every source is read
+# with an OIDC token now - so its virtualenv is no longer activated here.
 
 # The old iCMS tools-api endpoints have been removed. Their Glance
 # replacements take an OIDC access token instead of an SSO cookie, and each
