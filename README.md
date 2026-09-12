@@ -220,6 +220,16 @@ It accepts our own `cms-info-scraper` client, so nothing extra is needed in the 
 
 The API returns its text HTML-escaped - `School &quot;Francesco Romano&quot;` - so names and locations are unescaped before use, or the entities show up on the page.
 
+The page template is a `jsoncontentimporter` block reading `cinco.json`, and it has no conditionals, so anything that depends on a value is worked out here and exposed as a ready-made field:
+
+| field | is |
+| --- | --- |
+| `Url` | the CINCO page for that conference. Capitalised, because the template reads `{Url}` |
+| `TalksToFill` | `presentationsWithoutNominations`, as a number |
+| `Star` | `★` when that count is above zero, otherwise an empty string |
+
+So the template can write `{Star}` directly and get either a star or nothing. Add a legend line to the page saying what it means.
+
 The conference section shows **ten** entries: every big conference starting in the next three months, then the soonest of what is left - the small and national ones, and big conferences further out - until ten are filled, in date order. "Big" simply means not `SMALLCON` or `NATCONF`, so `INSTCONF`, `MEDCONF`, `MAJLAB` and `OTHER` all count. Schools, CERN seminars and the `OTHER` category are dropped outright. The constants at the top of that block - `maxConferences`, `bigWithinDays`, `smallCategories` and `skipCategories` - are what to change if the balance wants adjusting.
 
 That replaced an older rule which kept the first six of whatever came back and had a filter meant to drop small and national conferences when the list was long. That filter never fired: it tested `len(db_cinco)`, the length of the wrapper dict, which is always 1. So the page had been showing whatever was soonest regardless of size - with 57 conferences in a six-month window, three of the six slots were going to small and national meetings.

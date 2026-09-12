@@ -165,7 +165,18 @@ def conferenceToOldShape(entry, year):
         conf["Location"] = "Virtual"
     else:
         conf["Location"] = ", ".join([x for x in [city, country] if x])
-    conf["url"] = entry.get("cincoWebLink", "")
+    # The page template reads {Url}; the lowercase one is kept as well in
+    # case anything else came to rely on it.
+    conf["Url"] = entry.get("cincoWebLink", "")
+    conf["url"] = conf["Url"]
+    # Ready-made indicator for presentations still needing nominations. The
+    # template has no conditionals, so the star is decided here: it is either
+    # the character or an empty string.
+    try:
+        conf["TalksToFill"] = int(entry.get("presentationsWithoutNominations") or 0)
+    except (TypeError, ValueError):
+        conf["TalksToFill"] = 0
+    conf["Star"] = "\u2605" if conf["TalksToFill"] > 0 else ""
     # The filtering below keys on Category and CategoryDescription. CINCO
     # added a category to the API after the first version of it shipped
     # without one; the field name is not documented, so take the first
