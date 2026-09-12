@@ -148,6 +148,47 @@ def appointmentToTenure(entry):
     tenure["end_date"] = entry.get("endDateString")
     return tenure
 
+# The CINCO API replaced the conferences_list_short.aspx page it used to be
+# scraped from, with different names for everything and no category at all.
+def conferenceToOldShape(entry, year):
+    start = entry.get("conferenceStart") or ""
+    end = entry.get("conferenceEnd") or ""
+    conf = dict(entry)
+    conf["Name"] = entry.get("conferenceName", "")
+    conf["ShortName"] = entry.get("conferenceNameShort") or conf["Name"]
+    conf["Date"] = conferenceDates(start, end, year)
+    city = entry.get("conferenceCity") or ""
+    country = entry.get("conferenceCountry") or ""
+    if "virtual" in (city + country).lower():
+        conf["Location"] = "Virtual"
+    else:
+        conf["Location"] = ", ".join([x for x in [city, country] if x])
+    conf["url"] = entry.get("cincoWebLink", "")
+    # The old records had Category and CategoryDescription, which is what the
+    # filtering below used. The API does not provide them, so the entries that
+    # used to be dropped - schools, CERN seminars, national and small
+    # conferences - can no longer be told apart and all come through.
+    conf["Category"] = ""
+    conf["CategoryDescription"] = ""
+    return conf
+
+# "14-18 Sep", or "28 Sep - 2 Oct" across a month boundary. The year is left
+# off, as the old page's dates were with the current year stripped out.
+def conferenceDates(start, end, year):
+    try:
+        d1 = datetime.datetime.strptime(start, "%Y-%m-%d")
+    except ValueError:
+        return start.replace(year, "").strip()
+    try:
+        d2 = datetime.datetime.strptime(end, "%Y-%m-%d")
+    except ValueError:
+        return d1.strftime("%d %b")
+    if (d1.month, d1.day) == (d2.month, d2.day):
+        return d1.strftime("%d %b")
+    if d1.month == d2.month:
+        return "%s-%s"%(d1.strftime("%d"), d2.strftime("%d %b"))
+    return "%s - %s"%(d1.strftime("%d %b"), d2.strftime("%d %b"))
+
 # Clean up CINCO results
 today = datetime.date.today()
 year = str(today.year)
@@ -166,6 +207,12 @@ if do_cinco:
             raise
         finally:
             f.close()
+
+        # the API wraps its records in "conferences"; the old page used
+        # "JConference" and different field names throughout
+        if "conferences" in db_cinco:
+            db_cinco = { "JConference": [ conferenceToOldShape(x, year)
+                                          for x in db_cinco["conferences"] ] }
 
         new_cinco = []
         for entry in db_cinco["JConference"]:

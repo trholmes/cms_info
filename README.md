@@ -224,6 +224,10 @@ That replaces the old `conferences_list_short.aspx` page, which sat behind the i
 }
 ```
 
+`cleanup.py` maps the records back to the names the conference section expects, with `conferenceToOldShape`: `conferenceNameShort` (falling back to the full name) becomes `ShortName`, city and country are joined into `Location` - or `Virtual` where either says so - and `conferenceStart`/`conferenceEnd` become a `Date` like `14-18 Sep`, or `28 Sep - 02 Oct` across a month boundary, with the year left off as the old page's dates were.
+
+**One filter is lost.** The old records carried `Category` and `CategoryDescription`, which were used to drop schools, CERN seminars, and national and small conferences before keeping the next handful. The API returns no category, so those now come through like anything else and the section may show conferences it used to hide. Worth asking CINCO for a category field if that matters.
+
 Bolek Wyslouch (wyslouch@mit.edu) looks after CINCO.
 
 ## Keeping the client secret safe
