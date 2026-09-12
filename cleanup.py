@@ -227,7 +227,14 @@ if do_cinco:
             db_cinco = { "JConference": [ conferenceToOldShape(x, year)
                                           for x in db_cinco["conferences"] ] }
 
-        new_cinco = []
+        # What to show: every big conference starting in the next three
+        # months, then the soonest of whatever is left - the small and
+        # national ones, and big ones further out - up to ten in all.
+        maxConferences = 10
+        bigWithinDays = 92                      # about three months
+        smallCategories = ["NATCONF", "SMALLCON"]
+
+        candidates = []
         for entry in db_cinco["JConference"]:
             if entry["ShortName"]=="":
                 entry["ShortName"] = entry["Name"]
@@ -239,11 +246,24 @@ if do_cinco:
                 continue
             if entry["CategoryDescription"]=="CERN seminars":
                 continue
-            if len(db_cinco)>10:
-                if entry["Category"] in ["NATCONF", "SMALLCON"]:
-                    continue
-            if len(new_cinco)>5: continue
-            new_cinco.append(entry)
+            candidates.append(entry)
+
+        # Records from the old scraped page have no start date; treat those as
+        # being in the window so that they are not all pushed out by it.
+        cutoff = (today + datetime.timedelta(days=bigWithinDays)).isoformat()
+        def startsWithinWindow(entry):
+            start = entry.get("conferenceStart")
+            return (not start) or start <= cutoff
+
+        chosen = [ i for i, e in enumerate(candidates)
+                   if e["Category"] not in smallCategories
+                   and startsWithinWindow(e) ][:maxConferences]
+        for i in range(len(candidates)):
+            if len(chosen) >= maxConferences: break
+            if i not in chosen: chosen.append(i)
+
+        new_cinco = sorted([ candidates[i] for i in chosen ],
+                           key=lambda e: e.get("conferenceStart") or "")
 
         f = open(f_cinco, "w")
         json.dump(new_cinco, f)

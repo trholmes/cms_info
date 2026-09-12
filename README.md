@@ -220,6 +220,10 @@ It accepts our own `cms-info-scraper` client, so nothing extra is needed in the 
 
 The API returns its text HTML-escaped - `School &quot;Francesco Romano&quot;` - so names and locations are unescaped before use, or the entities show up on the page.
 
+The conference section shows **ten** entries: every big conference starting in the next three months, then the soonest of what is left - the small and national ones, and big conferences further out - until ten are filled, in date order. "Big" simply means not `SMALLCON` or `NATCONF`, so `INSTCONF`, `MEDCONF`, `MAJLAB` and `OTHER` all count. Schools and CERN seminars are dropped outright, as before. The three constants at the top of that block - `maxConferences`, `bigWithinDays` and `smallCategories` - are what to change if the balance wants adjusting.
+
+That replaced an older rule which kept the first six of whatever came back and had a filter meant to drop small and national conferences when the list was long. That filter never fired: it tested `len(db_cinco)`, the length of the wrapper dict, which is always 1. So the page had been showing whatever was soonest regardless of size - with 57 conferences in a six-month window, three of the six slots were going to small and national meetings.
+
 The API shipped without a category at first, which would have lost the filter that drops schools, CERN seminars, and national and small conferences; CINCO added one on request. The field name is not documented, so `firstPresent` takes whichever of the plausible names a record carries, and the existing filters key on it as before. If a record has no category at all the filters simply do not apply and everything comes through.
 
 Bolek Wyslouch (wyslouch@mit.edu) looks after CINCO.
