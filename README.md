@@ -214,19 +214,11 @@ The conference list is not a Glance API, and it authenticates differently from t
 
 That replaces the old `conferences_list_short.aspx` page, which sat behind the interactive SSO login and had to be scraped with a session cookie. Nothing needs `getDB.py` for CINCO any more.
 
-**The `cinco_prod` secret is not ours.** It belongs to CINCO, so it goes in the `clients` block of `cms_info_sso.json` and nowhere else:
-
-```json
-{
-    "client_id": "cms-info-scraper",
-    "client_secret": "ours",
-    "clients": { "cinco_prod": "theirs" }
-}
-```
+It accepts our own `cms-info-scraper` client, so nothing extra is needed in the config file. CINCO's own `cinco_prod` credentials work too, through a `clients` block keyed by their client id, but there is no reason to hold somebody else's secret when ours is accepted.
 
 `cleanup.py` maps the records back to the names the conference section expects, with `conferenceToOldShape`: `conferenceNameShort` (falling back to the full name) becomes `ShortName`, city and country are joined into `Location` - or `Virtual` where either says so - and `conferenceStart`/`conferenceEnd` become a `Date` like `14-18 Sep`, or `28 Sep - 02 Oct` across a month boundary, with the year left off as the old page's dates were.
 
-**One filter is lost.** The old records carried `Category` and `CategoryDescription`, which were used to drop schools, CERN seminars, and national and small conferences before keeping the next handful. The API returns no category, so those now come through like anything else and the section may show conferences it used to hide. Worth asking CINCO for a category field if that matters.
+The API shipped without a category at first, which would have lost the filter that drops schools, CERN seminars, and national and small conferences; CINCO added one on request. The field name is not documented, so `firstPresent` takes whichever of the plausible names a record carries, and the existing filters key on it as before. If a record has no category at all the filters simply do not apply and everything comes through.
 
 Bolek Wyslouch (wyslouch@mit.edu) looks after CINCO.
 

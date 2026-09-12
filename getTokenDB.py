@@ -39,13 +39,10 @@ Credentials are read from, in order of precedence:
             "client_secret": "00000000-0000-0000-0000-000000000000"
         }
 
-    An API with its own credentials rather than the api-access flow - CINCO -
-    takes its secret from a "clients" block keyed by that API's client id:
-
-        { "clients": { "cinco_prod": "..." } }
-
-    That secret belongs to the API's owners, not to us. Keep it out of git
-    and out of mail.
+    An API on the standard token endpoint rather than api-access - CINCO -
+    uses our own client too. It can be given that API's own credentials
+    instead, through a "clients" block keyed by their client id, but prefer
+    ours: a secret belonging to somebody else is one more thing to look after.
 
     The secret is all the file needs. It also accepts an "audiences" block,
     but an entry there shadows AUDIENCES below for that host, so a value that
@@ -97,11 +94,12 @@ AUDIENCES = {
     # a host or a host and path prefix; the longest match wins.
 }
 
-# Not every API uses the api-access flow above. CINCO issues its own client
-# credentials and takes a plain client credentials grant at the *standard*
-# token endpoint, with a scope instead of an audience. Its secret belongs to
-# CINCO rather than to us, so it is not in this file: put it in the config
-# file's "clients" block, keyed by the client id below.
+# Not every API uses the api-access flow above. CINCO takes a plain client
+# credentials grant at the *standard* token endpoint, with a scope instead of
+# an audience. It accepts our own client, which is what we use; the client id
+# named here is only reached if a secret for it is configured, which is how
+# the first working version of this ran before cms-info-scraper was granted
+# access. Prefer ours - one less secret of somebody else's to hold.
 PROFILES = {
     'cms-mgt-conferences.web.cern.ch': {
         'client_id': 'cinco_prod',
@@ -254,14 +252,21 @@ def get_token(cfg, audience, auth_server=AUTH_SERVER, realm=REALM,
             return cached
 
     if profile:
+        # Prefer our own client: an API that accepts it means one less secret
+        # of somebody else's to hold. The API's own credentials are used only
+        # if one is configured for them.
         client_id = profile['client_id']
         client_secret = (cfg.get('clients') or {}).get(client_id)
         if not client_secret:
+            client_id = cfg['client_id']
+            client_secret = cfg.get('client_secret')
+        if not client_secret:
             raise SystemExit(
-                f'ERROR: no client secret for "{client_id}". That API has its '
-                'own credentials, which\n       belong to its owners, not to '
-                f'us. Put the secret in {DEFAULT_CONFIG_FILE} as\n'
-                '       {"clients": {"' + client_id + '": "..."}}')
+                'ERROR: no client secret for this host. It takes a client '
+                'credentials grant at\n       the standard token endpoint: '
+                f'either ours, from {DEFAULT_CONFIG_FILE}, or that API\'s own '
+                f'as\n       {{"clients": {{"{profile["client_id"]}": '
+                '"..."}}}}.')
         params = {
             'grant_type': 'client_credentials',
             'client_id': client_id,

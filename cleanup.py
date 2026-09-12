@@ -149,7 +149,7 @@ def appointmentToTenure(entry):
     return tenure
 
 # The CINCO API replaced the conferences_list_short.aspx page it used to be
-# scraped from, with different names for everything and no category at all.
+# scraped from, with different names for everything.
 def conferenceToOldShape(entry, year):
     start = entry.get("conferenceStart") or ""
     end = entry.get("conferenceEnd") or ""
@@ -164,13 +164,24 @@ def conferenceToOldShape(entry, year):
     else:
         conf["Location"] = ", ".join([x for x in [city, country] if x])
     conf["url"] = entry.get("cincoWebLink", "")
-    # The old records had Category and CategoryDescription, which is what the
-    # filtering below used. The API does not provide them, so the entries that
-    # used to be dropped - schools, CERN seminars, national and small
-    # conferences - can no longer be told apart and all come through.
-    conf["Category"] = ""
-    conf["CategoryDescription"] = ""
+    # The filtering below keys on Category and CategoryDescription. CINCO
+    # added a category to the API after the first version of it shipped
+    # without one; the field name is not documented, so take the first
+    # plausible one. With no category at all the filters simply do not apply
+    # and schools and small conferences come through with everything else.
+    conf["Category"] = firstPresent(entry, ["conferenceCategory", "category",
+                                            "conferenceCategoryCode",
+                                            "categoryCode"])
+    conf["CategoryDescription"] = firstPresent(
+        entry, ["conferenceCategoryDescription", "categoryDescription",
+                "conferenceCategoryName", "categoryName"])
     return conf
+
+# First of these fields that the record actually has, as a string
+def firstPresent(entry, fields):
+    for field in fields:
+        if entry.get(field): return str(entry[field])
+    return ""
 
 # "14-18 Sep", or "28 Sep - 2 Oct" across a month boundary. The year is left
 # off, as the old page's dates were with the current year stripped out.
