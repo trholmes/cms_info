@@ -233,6 +233,7 @@ if do_cinco:
         maxConferences = 10
         bigWithinDays = 92                      # about three months
         smallCategories = ["NATCONF", "SMALLCON"]
+        skipCategories = ["OTHER"]              # never worth a slot
 
         candidates = []
         for entry in db_cinco["JConference"]:
@@ -243,6 +244,8 @@ if do_cinco:
             if "virtual" in entry["Location"] or "Virtual" in entry["Location"]:
                 entry["Location"] = "Virtual"
             if "SCHOOL" in entry["Category"]:
+                continue
+            if entry["Category"] in skipCategories:
                 continue
             if entry["CategoryDescription"]=="CERN seminars":
                 continue
