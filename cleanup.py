@@ -1,3 +1,4 @@
+import html
 import json
 import datetime
 from collections import OrderedDict
@@ -154,11 +155,12 @@ def conferenceToOldShape(entry, year):
     start = entry.get("conferenceStart") or ""
     end = entry.get("conferenceEnd") or ""
     conf = dict(entry)
-    conf["Name"] = entry.get("conferenceName", "")
-    conf["ShortName"] = entry.get("conferenceNameShort") or conf["Name"]
+    # The API returns these HTML-escaped, e.g. School &quot;Francesco Romano&quot;
+    conf["Name"] = html.unescape(entry.get("conferenceName") or "")
+    conf["ShortName"] = html.unescape(entry.get("conferenceNameShort") or "") or conf["Name"]
     conf["Date"] = conferenceDates(start, end, year)
-    city = entry.get("conferenceCity") or ""
-    country = entry.get("conferenceCountry") or ""
+    city = html.unescape(entry.get("conferenceCity") or "")
+    country = html.unescape(entry.get("conferenceCountry") or "")
     if "virtual" in (city + country).lower():
         conf["Location"] = "Virtual"
     else:

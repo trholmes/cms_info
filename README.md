@@ -218,6 +218,8 @@ It accepts our own `cms-info-scraper` client, so nothing extra is needed in the 
 
 `cleanup.py` maps the records back to the names the conference section expects, with `conferenceToOldShape`: `conferenceNameShort` (falling back to the full name) becomes `ShortName`, city and country are joined into `Location` - or `Virtual` where either says so - and `conferenceStart`/`conferenceEnd` become a `Date` like `14-18 Sep`, or `28 Sep - 02 Oct` across a month boundary, with the year left off as the old page's dates were.
 
+The API returns its text HTML-escaped - `School &quot;Francesco Romano&quot;` - so names and locations are unescaped before use, or the entities show up on the page.
+
 The API shipped without a category at first, which would have lost the filter that drops schools, CERN seminars, and national and small conferences; CINCO added one on request. The field name is not documented, so `firstPresent` takes whichever of the plausible names a record carries, and the existing filters key on it as before. If a record has no category at all the filters simply do not apply and everything comes through.
 
 Bolek Wyslouch (wyslouch@mit.edu) looks after CINCO.
