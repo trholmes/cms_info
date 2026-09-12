@@ -41,16 +41,15 @@ python3 getTokenDB.py 'https://cmsfence.cern.ch/incubator/api/job_openings/' -o 
 # in a {"period": N, "reports": {...}} object which cleanup.py unwraps.
 python3 getTokenDB.py 'https://cmsfence.cern.ch/alcm/api/analysis/xeb-report' -d 'period=14' -o ${loc}cadi_raw.json --expect-json
 
-# CINCO is now on the new SSO with a fix for the SSO to allow scripts to go through instead of choking on some "javascript not enabled" URL in the sequence
+# CINCO has an API of its own now. It does not use the api-access flow: it
+# has its own client (cinco_prod) and takes a plain client credentials grant
+# at the standard token endpoint with a scope rather than an audience.
+# getTokenDB.py knows that from its PROFILES table; the secret belongs to
+# CINCO and lives in the "clients" block of cms_info_sso.json.
+python3 getTokenDB.py 'https://cms-mgt-conferences.web.cern.ch/api/conferences_upcoming.ashx' -d 'months=6' -o ${loc}cinco_raw.json --expect-json
 
-## # for now, use the tool with Sebastian's workaround:
-## cd auth-get-sso-cookie
-## . ./activate.sh
-## cd ..
-## python3 ./getDB.py 'https://cms-mgt-conferences.web.cern.ch/conferences/conferences_list_short.aspx' > ${loc}cinco_raw.json
-
-##-ap: try the new getTokenDB.py also for cinco:
-python3 ./getTokenDB.py 'https://cms-mgt-conferences.web.cern.ch/conferences/conferences_list_short.aspx' -o ${loc}cinco_raw.json --expect-json
+# The same API can list an institute's talks, if the site ever wants them:
+#python3 getTokenDB.py 'https://cms-mgt-conferences.web.cern.ch/api/presentations_by_institute.ashx' -d 'inst_code=TENNESSEE' -o ${loc}talks_raw.json --expect-json
 
 python3 ./cleanup.py
 python3 ./getCalendar.py

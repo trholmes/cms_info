@@ -39,6 +39,14 @@ Credentials are read from, in order of precedence:
             "client_secret": "00000000-0000-0000-0000-000000000000"
         }
 
+    An API with its own credentials rather than the api-access flow - CINCO -
+    takes its secret from a "clients" block keyed by that API's client id:
+
+        { "clients": { "cinco_prod": "..." } }
+
+    That secret belongs to the API's owners, not to us. Keep it out of git
+    and out of mail.
+
     The secret is all the file needs. It also accepts an "audiences" block,
     but an entry there shadows AUDIENCES below for that host, so a value that
     later proves wrong keeps being used and the only symptom is a 401. Add one
@@ -87,6 +95,20 @@ AUDIENCES = {
     'cmsfence.cern.ch/incubator/': 'vocms0705',
     # Different APIs on the same host need different audiences, so keys may be
     # a host or a host and path prefix; the longest match wins.
+}
+
+# Not every API uses the api-access flow above. CINCO issues its own client
+# credentials and takes a plain client credentials grant at the *standard*
+# token endpoint, with a scope instead of an audience. Its secret belongs to
+# CINCO rather than to us, so it is not in this file: put it in the config
+# file's "clients" block, keyed by the client id below.
+PROFILES = {
+    'cms-mgt-conferences.web.cern.ch': {
+        'client_id': 'cinco_prod',
+        'scope': 'openid',
+        'token_endpoint': f'https://{AUTH_SERVER}/auth/realms/{REALM}'
+                          '/protocol/openid-connect/token',
+    },
 }
 
 # Tokens are short lived; renew this many seconds before the stated expiry.
@@ -162,6 +184,12 @@ def match_audience_key(url, audiences):
     return max(matches, key=len) if matches else None
 
 
+def profile_for(url):
+    """The non-api-access credentials for a URL, if it needs its own."""
+    key = match_audience_key(url, PROFILES)
+    return PROFILES.get(key) if key else None
+
+
 # ------------------------------------------------------------- tokens -------
 
 def token_endpoint(auth_server=AUTH_SERVER, realm=REALM):
@@ -210,28 +238,54 @@ def write_cached_token(audience, token, expires_in, cache_file):
 
 
 def get_token(cfg, audience, auth_server=AUTH_SERVER, realm=REALM,
-              cache_file=TOKEN_CACHE_FILE, use_cache=True, verbose=False):
-    """Client credentials grant against the CERN api-access token endpoint."""
+              cache_file=TOKEN_CACHE_FILE, use_cache=True, verbose=False,
+              profile=None):
+    """Client credentials grant, either flavour.
+
+    Without a profile this is the CERN api-access endpoint, naming the target
+    in an audience. With one it is the standard token endpoint, using that
+    API's own client credentials and a scope.
+    """
+    cache_key = audience if not profile else f'{profile["client_id"]}:scope'
     if use_cache:
-        cached = read_cached_token(audience, cache_file)
+        cached = read_cached_token(cache_key, cache_file)
         if cached:
             log('using cached access token', verbose)
             return cached
 
-    if not cfg.get('client_secret'):
-        raise SystemExit(
-            'ERROR: no client secret. Set CERN_CLIENT_SECRET or put it in '
-            f'{DEFAULT_CONFIG_FILE} (see the docstring at the top of this file).')
+    if profile:
+        client_id = profile['client_id']
+        client_secret = (cfg.get('clients') or {}).get(client_id)
+        if not client_secret:
+            raise SystemExit(
+                f'ERROR: no client secret for "{client_id}". That API has its '
+                'own credentials, which\n       belong to its owners, not to '
+                f'us. Put the secret in {DEFAULT_CONFIG_FILE} as\n'
+                '       {"clients": {"' + client_id + '": "..."}}')
+        params = {
+            'grant_type': 'client_credentials',
+            'client_id': client_id,
+            'client_secret': client_secret,
+            'scope': profile.get('scope', 'openid'),
+        }
+        url = profile['token_endpoint']
+        log(f'requesting token as "{client_id}" (scope '
+            f'"{params["scope"]}")', verbose)
+    else:
+        if not cfg.get('client_secret'):
+            raise SystemExit(
+                'ERROR: no client secret. Set CERN_CLIENT_SECRET or put it in '
+                f'{DEFAULT_CONFIG_FILE} (see the docstring at the top of this file).')
+        params = {
+            'grant_type': 'client_credentials',
+            'client_id': cfg['client_id'],
+            'client_secret': cfg['client_secret'],
+            'audience': audience,
+        }
+        url = token_endpoint(auth_server, realm)
+        log(f'requesting token for audience "{audience}" as "{cfg["client_id"]}"', verbose)
 
-    data = urllib.parse.urlencode({
-        'grant_type': 'client_credentials',
-        'client_id': cfg['client_id'],
-        'client_secret': cfg['client_secret'],
-        'audience': audience,
-    }).encode()
-
-    url = token_endpoint(auth_server, realm)
-    log(f'requesting token for audience "{audience}" as "{cfg["client_id"]}"', verbose)
+    data = urllib.parse.urlencode(params).encode()
     request = urllib.request.Request(
         url, data=data,
         headers={'Content-Type': 'application/x-www-form-urlencoded'})
@@ -250,7 +304,7 @@ def get_token(cfg, audience, auth_server=AUTH_SERVER, realm=REALM,
         raise SystemExit(f'ERROR: could not reach {url}: {exc.reason}')
 
     token = payload['access_token']
-    write_cached_token(audience, token, payload.get('expires_in', 600), cache_file)
+    write_cached_token(cache_key, token, payload.get('expires_in', 600), cache_file)
     return token
 
 
@@ -383,21 +437,30 @@ def fetch(url, cfg, args):
                                      args.verbose))
             raise
 
-    audience, source = audience_for(url, cfg, args.audience, with_source=True)
-    if audience:
-        log(f'audience "{audience}" (from {source})', args.verbose)
-    if not audience:
-        raise SystemExit(
-            f'ERROR: no audience configured for {url}. Pass --audience, set '
-            'CERN_API_AUDIENCE, or add the host to "audiences" in '
-            f'{args.config}.')
+    # An API with its own credentials does not use an audience at all
+    profile = profile_for(url) if not args.audience else None
+    if profile:
+        audience = None
+        log(f'using the {profile["client_id"]} credentials for this host',
+            args.verbose)
+    else:
+        audience, source = audience_for(url, cfg, args.audience, with_source=True)
+        if audience:
+            log(f'audience "{audience}" (from {source})', args.verbose)
+        if not audience:
+            raise SystemExit(
+                f'ERROR: no audience configured for {url}. Pass --audience, set '
+                'CERN_API_AUDIENCE, or add the host to "audiences" in '
+                f'{args.config}.\n       If this host is not an api-access API '
+                'at all - a page behind the interactive\n       login, say - '
+                'then no audience will work and it needs getDB.py instead.')
 
     last_error = None
     for attempt in range(1, RETRIES + 1):
         try:
             # Only trust the cache on the first attempt; if the request failed
             # the cached token may be the reason.
-            token = get_token(cfg, audience,
+            token = get_token(cfg, audience, profile=profile,
                               use_cache=(attempt == 1 and not args.no_cache),
                               verbose=args.verbose)
             return fetch_with_token(url, token, verify=not args.insecure,
@@ -539,9 +602,10 @@ def main(argv=None):
 
     if args.print_token:
         # Only the token on stdout, so it can be captured into a variable.
+        profile = profile_for(args.url) if args.url and not args.audience else None
         token = read_supplied_token(args) or get_token(
-            cfg, resolve_audience(cfg, args),
-            use_cache=not args.no_cache, verbose=args.verbose)
+            cfg, None if profile else resolve_audience(cfg, args),
+            profile=profile, use_cache=not args.no_cache, verbose=args.verbose)
         print(token)
         return 0
 

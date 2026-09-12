@@ -10,8 +10,8 @@ Actual scripts are run from this directory: `/afs/cern.ch/user/c/cmswww/cms_info
 | script | authentication | use for |
 | --- | --- | --- |
 | `getOldDB.py` | `cern-get-sso-cookie` (old SSO) | anything still on the old SSO |
-| `getDB.py` | `auth-get-sso-cookie` + Kerberos (session cookie) | web pages that only accept an SSO login session, e.g. the CINCO conference list |
-| `getTokenDB.py` | OIDC API access token (client credentials) | APIs that accept `Authorization: Bearer <token>` |
+| `getDB.py` | `auth-get-sso-cookie` + Kerberos (session cookie) | web pages that only accept an SSO login session - nothing uses it now |
+| `getTokenDB.py` | OIDC access token (client credentials) | every API the site reads |
 
 ## getTokenDB.py: OIDC API access
 
@@ -205,7 +205,26 @@ curl -sS -o /dev/null -w '%{http_code}\n' \
 
 ### CINCO
 
-The conference list is not a Glance API and was not part of this migration: it is an ASP.NET page on `cms-mgt-conferences.web.cern.ch`, still read with `getDB.py` and an SSO cookie. Bolek Wyslouch (wyslouch@mit.edu) looks after it.
+The conference list is not a Glance API, and it authenticates differently from the rest. It has its own OIDC client, `cinco_prod`, and takes a plain client credentials grant at the **standard** token endpoint (`.../protocol/openid-connect/token`) with `scope=openid` - no audience, and not the `api-access/token` endpoint the others use. `getTokenDB.py` keeps that in its `PROFILES` table and applies it automatically by host.
+
+| endpoint | gives |
+| --- | --- |
+| `/api/conferences_upcoming.ashx?months=6` | the upcoming conference list, which the site uses |
+| `/api/presentations_by_institute.ashx?inst_code=TENNESSEE` | talks from one institute, not currently used |
+
+That replaces the old `conferences_list_short.aspx` page, which sat behind the interactive SSO login and had to be scraped with a session cookie. Nothing needs `getDB.py` for CINCO any more.
+
+**The `cinco_prod` secret is not ours.** It belongs to CINCO, so it goes in the `clients` block of `cms_info_sso.json` and nowhere else:
+
+```json
+{
+    "client_id": "cms-info-scraper",
+    "client_secret": "ours",
+    "clients": { "cinco_prod": "theirs" }
+}
+```
+
+Bolek Wyslouch (wyslouch@mit.edu) looks after CINCO.
 
 ## Keeping the client secret safe
 
